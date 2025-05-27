@@ -82,14 +82,27 @@ function PoliticalGame() {
     }
   }, [gameState]);
 
+  // App.js
+
   const handleAuth = async (action, form) => {
     try {
-      setLoading(true); setError('');
+      setLoading(true); 
+      setError('');
+
+      if (action === 'register' && form.password !== form.confirmPassword) {
+          throw new Error("Passwords do not match.");
+      }
+
       const response = await apiCall(`/auth/${action}`, { method: 'POST', body: JSON.stringify(form) });
       localStorage.setItem('authToken', response.token);
       await loadUserProfile();
-    } catch (error) { setError(error.message); } 
-    finally { setLoading(false); }
+    } catch (error) { 
+        // This improved catch block will now display the specific error
+        setError(error.message); 
+    } 
+    finally { 
+        setLoading(false); 
+    }
   };
 
   const updateProfile = async (updateData) => {
