@@ -6,6 +6,7 @@ import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays } from '
 // This is the main navigation bar for the application.
 // It receives the currentUser, logout function, and gameDate as props.
 export default function Navbar({ currentUser, logout, gameDate }) {
+  console.log("Navbar received gameDate:", gameDate);
   const navLinkStyles = ({ isActive }) => ({
     color: isActive ? '#60a5fa' : '#9ca3af', // text-blue-400 or text-gray-400
     fontWeight: isActive ? 'bold' : 'normal',
