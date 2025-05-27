@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
 import { allStates } from './state-data';
+import StatePage from './pages/StatePage'; 
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -63,6 +64,7 @@ function App() {
                 <Routes>
                   <Route path="/" element={<HomePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
                   <Route path="/map" element={<MapPage />} />
+                  <Route path="/state/:stateName" element={<StatePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="*" element={<Navigate to="/" />} /> {/* Redirect unknown paths */}
                 </Routes>
