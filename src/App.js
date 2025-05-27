@@ -6,7 +6,7 @@ import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
-import { allStates } from './state-data';
+import { allStates, stateData, stanceScale } from './state-data';
 import StatePage from './pages/StatePage'; 
 
 function App() {
@@ -146,52 +146,142 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup, onAuthSuccess }
 };
 
 const ProfileSetup = ({ currentUser, onSetupComplete }) => {
-    const [profileData, setProfileData] = useState(currentUser);
-    const stanceScale = [{ value: 1, label: 'Far Left' }, { value: 2, label: 'Left' }, { value: 3, label: 'Center-Left' }, { value: 4, label: 'Moderate' }, { value: 5, label: 'Center-Right' }, { value: 6, label: 'Right' }, { value: 7, label: 'Far Right' }];
+    // Initialize local state with currentUser data passed in
+    const [profileData, setProfileData] = useState({
+        ...currentUser,
+        economic_stance: currentUser.economic_stance || 4, // Ensure default if not set
+        social_stance: currentUser.social_stance || 4,   // Ensure default if not set
+    });
+    const [error, setError] = useState(''); // For displaying errors
+
     const getStanceLabel = (value) => stanceScale.find(s => s.value === value)?.label || 'Moderate';
 
+    // Helper function for state alignment (can be expanded)
+    const calculateStateAlignment = (playerEconomic, playerSocial, stateName) => {
+        if (!stateName || !stateData[stateName]) return { economicMatch: 'N/A', socialMatch: 'N/A', overallAlignment: 'N/A' };
+        
+        const stateEconomic = stateData[stateName]?.economic || 4;
+        const stateSocial = stateData[stateName]?.social || 4;
+        
+        const economicDiff = Math.abs(playerEconomic - stateEconomic);
+        const socialDiff = Math.abs(playerSocial - stateSocial);
+        
+        // Simplified match percentage (can be made more sophisticated)
+        const economicMatch = Math.max(0, 100 - (economicDiff * 15));
+        const socialMatch = Math.max(0, 100 - (socialDiff * 15));
+        const overallAlignment = Math.max(0, 100 - ((economicDiff + socialDiff) * 10)); // Adjusted overall calculation
+
+        return { economicMatch, socialMatch, overallAlignment };
+    };
+
+    const alignment = calculateStateAlignment(profileData.economic_stance, profileData.social_stance, profileData.home_state);
+
     const handleUpdate = async (field, value) => {
-        setProfileData(prev => ({ ...prev, [field]: value }));
-        await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify({ [field]: value }) });
-    }
+        // Ensure numeric values for stances
+        const valToUpdate = (field === 'economicStance' || field === 'socialStance') ? parseInt(value, 10) : value;
+        
+        setProfileData(prev => ({ ...prev, [field]: valToUpdate }));
+        
+        // Send to backend
+        try {
+            setError(''); // Clear previous errors
+            await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify({ [field]: valToUpdate }) });
+        } catch (err) {
+            setError(`Failed to update ${field}: ${err.message}`);
+        }
+    };
 
     const finishSetup = () => {
+        setError('');
         if (!profileData.party || !profileData.home_state) {
             alert("Please select a party and a home state to continue.");
             return;
         }
-        onSetupComplete();
-    }
+        onSetupComplete(); // This will trigger a reload and use the updated currentUser from App.js
+    };
 
     return(
-        <div className="max-w-2xl mx-auto mt-20 p-6 bg-gray-800 rounded-lg space-y-6">
-            <h2 className="text-2xl font-bold">Create Your Political Persona</h2>
-            <div className="grid grid-cols-2 gap-4">
+        <div className="max-w-2xl mx-auto mt-10 md:mt-20 p-6 bg-gray-800 rounded-lg space-y-6 shadow-xl">
+            <h2 className="text-2xl font-bold text-center text-blue-300">Create Your Political Persona</h2>
+            {error && <p className="bg-red-500/20 text-red-300 p-3 rounded text-sm">{error}</p>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label className="block mb-1 text-sm font-bold">Political Party</label>
-                    <select value={profileData.party || ''} onChange={(e) => handleUpdate('party', e.target.value)} className="w-full p-2 bg-gray-700 rounded">
-                        <option value="">Select Party</option><option value="Democrat">Democrat</option><option value="Republican">Republican</option><option value="Independent">Independent</option>
+                    <label className="block mb-1 text-sm font-bold text-gray-300">Political Party</label>
+                    <select 
+                        value={profileData.party || ''} 
+                        onChange={(e) => handleUpdate('party', e.target.value)} 
+                        className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500"
+                    >
+                        <option value="">Select Party</option>
+                        <option value="Democrat">Democrat</option>
+                        <option value="Republican">Republican</option>
+                        <option value="Independent">Independent</option>
                     </select>
                 </div>
                  <div>
-                    <label className="block mb-1 text-sm font-bold">Home State</label>
-                    <select value={profileData.home_state || ''} onChange={(e) => handleUpdate('homeState', e.target.value)} className="w-full p-2 bg-gray-700 rounded">
+                    <label className="block mb-1 text-sm font-bold text-gray-300">Home State</label>
+                    <select 
+                        value={profileData.home_state || ''} 
+                        onChange={(e) => handleUpdate('homeState', e.target.value)} 
+                        className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500"
+                    >
                         <option value="">Select State</option>
                         {allStates.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
             </div>
+            {/* Stances */}
             <div>
-                <label className="block mb-1 text-sm font-bold">Economic Stance: {getStanceLabel(profileData.economic_stance)}</label>
-                <input type="range" min="1" max="7" value={profileData.economic_stance || 4} onChange={e => handleUpdate('economicStance', parseInt(e.target.value))} className="w-full"/>
+                <label className="block mb-1 text-sm font-bold text-gray-300">Economic Stance: {getStanceLabel(profileData.economic_stance)}</label>
+                <input 
+                    type="range" min="1" max="7" 
+                    value={profileData.economic_stance} 
+                    onChange={e => handleUpdate('economicStance', e.target.value)} 
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
             </div>
              <div>
-                <label className="block mb-1 text-sm font-bold">Social Stance: {getStanceLabel(profileData.social_stance)}</label>
-                <input type="range" min="1" max="7" value={profileData.social_stance || 4} onChange={e => handleUpdate('socialStance', parseInt(e.target.value))} className="w-full"/>
+                <label className="block mb-1 text-sm font-bold text-gray-300">Social Stance: {getStanceLabel(profileData.social_stance)}</label>
+                <input 
+                    type="range" min="1" max="7" 
+                    value={profileData.social_stance} 
+                    onChange={e => handleUpdate('socialStance', e.target.value)} 
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
             </div>
-            <button onClick={finishSetup} className="w-full bg-green-600 p-2 rounded font-bold hover:bg-green-700 disabled:bg-gray-500">Enter the Arena</button>
+
+            {/* State Alignment Section - RESTORED */}
+            {profileData.home_state && (
+                <div className="bg-gray-700/50 p-4 rounded-lg mt-4">
+                    <h4 className="text-md font-semibold text-gray-200 mb-2">Alignment with {profileData.home_state}:</h4>
+                    <div className="space-y-1 text-sm">
+                        <p className="text-gray-300">Economic Match: <span className="font-bold text-gray-100">{alignment.economicMatch}%</span></p>
+                        <p className="text-gray-300">Social Match: <span className="font-bold text-gray-100">{alignment.socialMatch}%</span></p>
+                        <p className="text-gray-200 mt-1">Overall Alignment: <span className="font-bold text-lg text-blue-300">{alignment.overallAlignment}%</span></p>
+                    </div>
+                </div>
+            )}
+
+            {/* Bio Section - Optional for profile setup, can be enhanced in full profile page */}
+            <div>
+                <label className="block mb-1 text-sm font-bold text-gray-300">Bio (Optional)</label>
+                <textarea
+                    value={profileData.bio || ''}
+                    onChange={(e) => handleUpdate('bio', e.target.value)}
+                    placeholder="A brief political bio..."
+                    className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 h-24 focus:border-blue-500 focus:ring-blue-500"
+                />
+            </div>
+
+            <button 
+                onClick={finishSetup} 
+                disabled={!profileData.party || !profileData.home_state} 
+                className="w-full bg-green-600 p-3 rounded font-bold text-lg hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+            >
+                Enter the Arena
+            </button>
         </div>
-    )
-}
+    );
+};
 
 export default App;
