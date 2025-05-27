@@ -1021,11 +1021,11 @@ function PoliticalGame() {
                     <select
                       value={currentUser.profile.gender || ''}
                       onChange={(e) => updateProfile('gender', e.target.value)}
-                      className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/30"
+                      className="w-full p-3 rounded-lg bg-white text-black border border-white/30"
                     >
-                      <option value="">Select Gender</option>
+                      <option value="" className="bg-white text-black">Select Gender</option>
                       {genderOptions.map(option => (
-                        <option key={option} value={option}>{option}</option>
+                        <option key={option} value={option} className="bg-white text-black">{option}</option>
                       ))}
                     </select>
                   </div>
@@ -1037,11 +1037,11 @@ function PoliticalGame() {
                     <select
                       value={currentUser.profile.race || ''}
                       onChange={(e) => updateProfile('race', e.target.value)}
-                      className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/30"
+                      className="w-full p-3 rounded-lg bg-white text-black border border-white/30"
                     >
-                      <option value="">Select Race/Ethnicity</option>
+                      <option value="" className="bg-white text-black">Select Race/Ethnicity</option>
                       {raceOptions.map(option => (
-                        <option key={option} value={option}>{option}</option>
+                        <option key={option} value={option} className="bg-white text-black">{option}</option>
                       ))}
                     </select>
                   </div>
@@ -1050,11 +1050,11 @@ function PoliticalGame() {
                     <select
                       value={currentUser.profile.religion || ''}
                       onChange={(e) => updateProfile('religion', e.target.value)}
-                      className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/30"
+                      className="w-full p-3 rounded-lg bg-white text-black border border-white/30"
                     >
-                      <option value="">Select Religion</option>
+                      <option value="" className="bg-white text-black">Select Religion</option>
                       {religionOptions.map(option => (
-                        <option key={option} value={option}>{option}</option>
+                        <option key={option} value={option} className="bg-white text-black">{option}</option>
                       ))}
                     </select>
                   </div>
