@@ -1,13 +1,121 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Vote, DollarSign, TrendingUp, MessageCircle, Trophy, Calendar, Map, User, Settings, Globe, Clock, Star, AlertCircle, CheckCircle, Gavel } from 'lucide-react';
 
+// API Configuration
+const API_BASE_URL = 'https://political-arena-backend.onrender.com/api';
+
+// API Helper Functions
+const apiCall = async (endpoint, options = {}) => {
+  const token = localStorage.getItem('authToken');
+  const config = {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` })
+    },
+    ...options
+  };
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'API request failed');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error;
+  }
+};
+
 const PoliticalGame = () => {
-  const [gameState, setGameState] = useState('login'); // login, register, lobby, profile, elections, campaign, voting, results, governance
+  const [gameState, setGameState] = useState('login');
   const [currentUser, setCurrentUser] = useState(null);
   const [allPlayers, setAllPlayers] = useState([]);
   const [activeElections, setActiveElections] = useState([]);
   const [currentElection, setCurrentElection] = useState(null);
   const [campaignTimer, setCampaignTimer] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Check for existing auth token on load
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      loadUserProfile();
+    }
+  }, []);
+
+  // Load user profile from API
+  const loadUserProfile = async () => {
+    try {
+      setLoading(true);
+      const profile = await apiCall('/auth/profile');
+      setCurrentUser({
+        id: profile.id,
+        username: profile.username,
+        email: profile.email,
+        profile: {
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          party: profile.party,
+          economicStance: profile.economic_stance || 4,
+          socialStance: profile.social_stance || 4,
+          homeState: profile.home_state,
+          bio: profile.bio,
+          currentOffice: profile.current_office,
+          politicalCapital: profile.political_capital,
+          approval: profile.approval_rating,
+          campaignFunds: profile.campaign_funds
+        }
+      });
+      
+      if (profile.party && profile.home_state) {
+        setGameState('lobby');
+        loadGameData();
+      } else {
+        setGameState('profile');
+      }
+    } catch (error) {
+      console.error('Profile loading error:', error);
+      localStorage.removeItem('authToken');
+      setGameState('login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load game data
+  const loadGameData = async () => {
+    try {
+      const [elections, players] = await Promise.all([
+        apiCall('/elections'),
+        apiCall('/players/online')
+      ]);
+      
+      setActiveElections(elections);
+      setAllPlayers(players.map(p => ({
+        id: p.id,
+        username: p.username,
+        profile: {
+          firstName: p.first_name,
+          lastName: p.last_name,
+          party: p.party,
+          homeState: p.home_state,
+          currentOffice: p.current_office,
+          approval: p.approval_rating,
+          campaignFunds: p.campaign_funds,
+          politicalCapital: p.political_capital
+        }
+      })));
+    } catch (error) {
+      console.error('Game data loading error:', error);
+      setError('Failed to load game data');
+    }
+  };
+
   // Political stance mapping
   const stanceScale = [
     { value: 1, label: 'Far Left', color: 'bg-blue-800' },
@@ -84,259 +192,164 @@ const PoliticalGame = () => {
     { name: 'Independent', color: 'bg-purple-600', abbreviation: 'I' }
   ];
 
-  const offices = [
-    { name: 'State Legislature', level: 1, description: 'State House/Senate', filingFee: 500, campaignLength: 21 },
-    { name: 'Governor', level: 2, description: 'State Executive', filingFee: 2000, campaignLength: 30 },
-    { name: 'House Representative', level: 3, description: 'Federal House', filingFee: 1000, campaignLength: 28 },
-    { name: 'Senator', level: 4, description: 'Federal Senate', filingFee: 5000, campaignLength: 35 },
-    { name: 'President', level: 5, description: 'Chief Executive', filingFee: 10000, campaignLength: 42 }
-  ];
-
-  const campaignActions = [
-    { 
-      name: 'Rally', 
-      cost: 300, 
-      approvalBoost: 3, 
-      fundingChange: -300,
-      description: 'Hold a public rally to energize supporters',
-      timeRequired: 2,
-      riskLevel: 'low'
-    },
-    { 
-      name: 'TV Advertisement', 
-      cost: 1000, 
-      approvalBoost: 7, 
-      fundingChange: -1000,
-      description: 'Run television ads across the state',
-      timeRequired: 1,
-      riskLevel: 'low'
-    },
-    { 
-      name: 'Town Hall', 
-      cost: 150, 
-      approvalBoost: 4, 
-      fundingChange: -150,
-      description: 'Host an interactive town hall meeting',
-      timeRequired: 2,
-      riskLevel: 'medium'
-    },
-    { 
-      name: 'Fundraising Dinner', 
-      cost: 200, 
-      approvalBoost: -1, 
-      fundingChange: 800,
-      description: 'Exclusive fundraising event with donors', 
-      timeRequired: 1,
-      riskLevel: 'medium'
-    },
-    { 
-      name: 'Door-to-Door Canvassing', 
-      cost: 0, 
-      approvalBoost: 2, 
-      fundingChange: 0,
-      description: 'Personal voter outreach in neighborhoods',
-      timeRequired: 3,
-      riskLevel: 'low'
-    },
-    { 
-      name: 'Digital Campaign', 
-      cost: 500, 
-      approvalBoost: 4, 
-      fundingChange: -500,
-      description: 'Social media and online advertising',
-      timeRequired: 1,
-      riskLevel: 'low'
-    },
-    { 
-      name: 'Debate Preparation', 
-      cost: 100, 
-      approvalBoost: 0, 
-      fundingChange: -100,
-      description: 'Prepare for upcoming debates',
-      timeRequired: 2,
-      riskLevel: 'low'
-    },
-    { 
-      name: 'Policy Speech', 
-      cost: 200, 
-      approvalBoost: 5, 
-      fundingChange: -200,
-      description: 'Major policy address to voters',
-      timeRequired: 2,
-      riskLevel: 'high'
-    }
-  ];
-
-  // Initialize mock players and elections
-  useEffect(() => {
-    if (gameState === 'lobby' && allPlayers.length <= 1) {
-      const mockPlayers = [
-        {
-          id: 2,
-          username: 'PoliticsPro',
-          profile: { 
-            firstName: 'Sarah', 
-            lastName: 'Johnson', 
-            party: 'Democrat', 
-            homeState: 'California', 
-            currentOffice: 'State Legislature',
-            economicStance: 2,
-            socialStance: 2,
-            approval: 67,
-            campaignFunds: 2500,
-            politicalCapital: 15
-          }
-        },
-        {
-          id: 3,
-          username: 'ConservativeVoice',
-          profile: { 
-            firstName: 'Mike', 
-            lastName: 'Smith', 
-            party: 'Republican', 
-            homeState: 'Texas', 
-            currentOffice: 'Governor',
-            economicStance: 6,
-            socialStance: 6,
-            approval: 72,
-            campaignFunds: 5000,
-            politicalCapital: 20
-          }
-        },
-        {
-          id: 4,
-          username: 'IndependentMind',
-          profile: { 
-            firstName: 'Alex', 
-            lastName: 'Chen', 
-            party: 'Independent', 
-            homeState: 'Colorado', 
-            currentOffice: 'House Representative',
-            economicStance: 4,
-            socialStance: 3,
-            approval: 58,
-            campaignFunds: 1800,
-            politicalCapital: 12
-          }
-        }
-      ];
-      
-      if (currentUser) {
-        setAllPlayers([currentUser, ...mockPlayers]);
-        
-        // Create some active elections
-        setActiveElections([
-          {
-            id: 1,
-            office: 'Governor',
-            state: currentUser.profile.homeState,
-            status: 'accepting_candidates',
-            candidates: [],
-            timeRemaining: 168, // 7 days to file
-            filingDeadline: Date.now() + (7 * 24 * 60 * 60 * 1000),
-            campaignStart: Date.now() + (7 * 24 * 60 * 60 * 1000),
-            electionDate: Date.now() + (37 * 24 * 60 * 60 * 1000),
-            filingFee: 2000
-          },
-          {
-            id: 2,
-            office: 'House Representative',
-            state: 'California',
-            status: 'campaign_active',
-            candidates: [
-              { playerId: 2, name: 'Sarah Johnson', party: 'Democrat', approval: 67, campaignFunds: 2500 }
-            ],
-            timeRemaining: 480, // 20 days
-            campaignStart: Date.now() - (10 * 24 * 60 * 60 * 1000),
-            electionDate: Date.now() + (20 * 24 * 60 * 60 * 1000),
-            filingFee: 1000
-          },
-          {
-            id: 3,
-            office: 'State Legislature',
-            state: 'Texas',
-            status: 'voting_open',
-            candidates: [
-              { playerId: 3, name: 'Mike Smith', party: 'Republican', approval: 72, votes: 15420 },
-              { playerId: null, name: 'Jennifer Lopez', party: 'Democrat', approval: 45, votes: 12130 }
-            ],
-            timeRemaining: 24, // 1 day left to vote
-            electionDate: Date.now() + (1 * 24 * 60 * 60 * 1000),
-            filingFee: 500
-          }
-        ]);
-      }
-    }
-  }, [gameState, currentUser]);
-
-  // Campaign timer effect
-  useEffect(() => {
-    if (gameState === 'campaign' && currentElection && campaignTimer > 0) {
-      const timer = setTimeout(() => {
-        setCampaignTimer(prev => prev - 1);
-        if (campaignTimer <= 1) {
-          setGameState('voting');
-        }
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [gameState, campaignTimer, currentElection]);
-
   // Authentication functions
-  const handleLogin = () => {
-    if (loginForm.username && loginForm.password) {
-      const user = {
-        id: Date.now(),
-        username: loginForm.username,
-        profile: {
-          firstName: 'John',
-          lastName: 'Doe',
-          party: '',
-          economicStance: 4,
-          socialStance: 4,
-          homeState: '',
-          bio: '',
-          currentOffice: 'Citizen',
-          politicalCapital: 10,
-          approval: 50,
-          campaignFunds: 1000
-        }
-      };
-      setCurrentUser(user);
-      setGameState('profile');
+  const handleLogin = async () => {
+    if (!loginForm.username || !loginForm.password) {
+      setError('Please enter username and password');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await apiCall('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          username: loginForm.username,
+          password: loginForm.password
+        })
+      });
+
+      localStorage.setItem('authToken', response.token);
+      await loadUserProfile();
+      
+    } catch (error) {
+      setError(error.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRegister = () => {
-    if (registerForm.username && registerForm.email && registerForm.password === registerForm.confirmPassword) {
-      const user = {
-        id: Date.now(),
-        username: registerForm.username,
-        email: registerForm.email,
-        profile: {
+  const handleRegister = async () => {
+    if (!registerForm.username || !registerForm.email || !registerForm.password) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    if (registerForm.password !== registerForm.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await apiCall('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          username: registerForm.username,
+          email: registerForm.email,
+          password: registerForm.password,
           firstName: registerForm.firstName,
-          lastName: registerForm.lastName,
-          party: '',
-          economicStance: 4,
-          socialStance: 4,
-          homeState: '',
-          bio: '',
-          currentOffice: 'Citizen',
-          politicalCapital: 10,
-          approval: 50,
-          campaignFunds: 1000
-        }
-      };
-      setCurrentUser(user);
-      setGameState('profile');
+          lastName: registerForm.lastName
+        })
+      });
+
+      localStorage.setItem('authToken', response.token);
+      await loadUserProfile();
+      
+    } catch (error) {
+      setError(error.message || 'Registration failed');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateProfile = (field, value) => {
+  const updateProfile = async (field, value) => {
+    // Update local state immediately for UI responsiveness
     setCurrentUser(prev => ({
       ...prev,
       profile: { ...prev.profile, [field]: value }
     }));
+
+    try {
+      const updateData = {};
+      updateData[field] = value;
+      
+      await apiCall('/auth/profile', {
+        method: 'PUT',
+        body: JSON.stringify(updateData)
+      });
+      
+    } catch (error) {
+      console.error('Profile update error:', error);
+      // Revert the local change if API call failed
+      await loadUserProfile();
+    }
+  };
+
+  const enterLobby = async () => {
+    if (currentUser.profile.party && currentUser.profile.homeState) {
+      setGameState('lobby');
+      await loadGameData();
+    }
+  };
+
+  // Fundraising functions
+  const performFundraisingAction = async (actionType) => {
+    try {
+      setLoading(true);
+      
+      const response = await apiCall('/fundraising/action', {
+        method: 'POST',
+        body: JSON.stringify({ actionType })
+      });
+
+      // Update local user data
+      setCurrentUser(prev => ({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          campaignFunds: prev.profile.campaignFunds + response.fundsGained,
+          approval: Math.max(0, Math.min(100, prev.profile.approval + response.approvalChange)),
+          politicalCapital: Math.max(0, prev.profile.politicalCapital + response.politicalCapitalChange)
+        }
+      }));
+      
+      setError('');
+    } catch (error) {
+      setError(error.message || 'Fundraising action failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Election functions
+  const fileForElection = async (election) => {
+    try {
+      setLoading(true);
+      
+      await apiCall(`/elections/${election.id}/file`, {
+        method: 'POST'
+      });
+
+      // Refresh election data
+      await loadGameData();
+      
+      // Update user funds
+      setCurrentUser(prev => ({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          campaignFunds: prev.profile.campaignFunds - election.filing_fee
+        }
+      }));
+      
+      setError('');
+    } catch (error) {
+      setError(error.message || 'Filing for election failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('authToken');
+    setCurrentUser(null);
+    setGameState('login');
+    setError('');
   };
 
   const getStanceLabel = (value) => {
@@ -353,164 +366,6 @@ const PoliticalGame = () => {
     const economicDiff = Math.abs(playerEconomic - stateEconomic);
     const socialDiff = Math.abs(playerSocial - stateSocial);
     return Math.max(0, 100 - ((economicDiff + socialDiff) * 8));
-  };
-
-  const enterLobby = () => {
-    if (currentUser.profile.party && currentUser.profile.homeState) {
-      setGameState('lobby');
-    }
-  };
-
-  // Election functions
-  const fileForElection = (election) => {
-    if (currentUser.profile.campaignFunds >= election.filingFee) {
-      const updatedElection = {
-        ...election,
-        candidates: [...election.candidates, {
-          playerId: currentUser.id,
-          name: `${currentUser.profile.firstName} ${currentUser.profile.lastName}`,
-          party: currentUser.profile.party,
-          approval: currentUser.profile.approval,
-          campaignFunds: currentUser.profile.campaignFunds - election.filingFee,
-          economicStance: currentUser.profile.economicStance,
-          socialStance: currentUser.profile.socialStance,
-          campaignActions: []
-        }]
-      };
-      
-      setActiveElections(prev => 
-        prev.map(e => e.id === election.id ? updatedElection : e)
-      );
-      
-      setCurrentUser(prev => ({
-        ...prev,
-        profile: { ...prev.profile, campaignFunds: prev.profile.campaignFunds - election.filingFee }
-      }));
-    }
-  };
-
-  const startCampaign = (election) => {
-    setCurrentElection(election);
-    setCampaignTimer(election.timeRemaining || 1440); // Default 24 hours in minutes
-    setGameState('campaign');
-  };
-
-  const performCampaignAction = (action) => {
-    if (!currentElection || !currentUser) return;
-    
-    if (currentUser.profile.campaignFunds >= action.cost && campaignTimer >= action.timeRequired) {
-      // Calculate effectiveness based on state alignment
-      const stateAlignment = calculateStateAlignment(
-        currentUser.profile.economicStance,
-        currentUser.profile.socialStance,
-        currentElection.state
-      );
-      
-      const effectivenessMultiplier = (stateAlignment / 100) + 0.5; // 0.5 to 1.5 multiplier
-      const actualApprovalBoost = Math.round(action.approvalBoost * effectivenessMultiplier);
-      
-      // Random event chance based on action risk
-      let eventMessage = '';
-      const randomEvent = Math.random();
-      if (action.riskLevel === 'high' && randomEvent < 0.15) {
-        eventMessage = 'Your speech received mixed reactions in the media!';
-      } else if (action.riskLevel === 'medium' && randomEvent < 0.1) {
-        eventMessage = 'A minor controversy arose from this action.';
-      }
-      
-      setCurrentUser(prev => ({
-        ...prev,
-        profile: {
-          ...prev.profile,
-          approval: Math.min(100, Math.max(0, prev.profile.approval + actualApprovalBoost)),
-          campaignFunds: prev.profile.campaignFunds + action.fundingChange
-        }
-      }));
-      
-      setCampaignTimer(prev => prev - action.timeRequired);
-      
-      // Update election with action taken
-      setCurrentElection(prev => ({
-        ...prev,
-        candidates: prev.candidates.map(candidate => 
-          candidate.playerId === currentUser.id 
-            ? {
-                ...candidate, 
-                campaignActions: [...(candidate.campaignActions || []), {
-                  action: action.name,
-                  effectiveness: effectivenessMultiplier,
-                  event: eventMessage
-                }]
-              }
-            : candidate
-        )
-      }));
-    }
-  };
-
-  const simulateElection = () => {
-    if (!currentElection) return;
-    
-    // Calculate votes for each candidate
-    const results = currentElection.candidates.map(candidate => {
-      const baseVotes = Math.floor(Math.random() * 5000) + 1000;
-      const approvalMultiplier = candidate.approval / 50; // Normalize around 50%
-      const stateAlignment = candidate.playerId === currentUser.id 
-        ? calculateStateAlignment(candidate.economicStance, candidate.socialStance, currentElection.state)
-        : Math.random() * 100;
-      const alignmentMultiplier = stateAlignment / 100;
-      
-      const totalVotes = Math.floor(baseVotes * approvalMultiplier * alignmentMultiplier);
-      
-      return {
-        ...candidate,
-        votes: totalVotes,
-        votePercentage: 0 // Will calculate after all votes are tallied
-      };
-    }).sort((a, b) => b.votes - a.votes);
-    
-    // Calculate percentages
-    const totalVotes = results.reduce((sum, candidate) => sum + candidate.votes, 0);
-    results.forEach(candidate => {
-      candidate.votePercentage = ((candidate.votes / totalVotes) * 100).toFixed(1);
-    });
-    
-    const winner = results[0];
-    const playerResult = results.find(r => r.playerId === currentUser.id);
-    const playerWon = winner.playerId === currentUser.id;
-    
-    // Update player profile if they won
-    if (playerWon) {
-      setCurrentUser(prev => ({
-        ...prev,
-        profile: {
-          ...prev.profile,
-          currentOffice: currentElection.office,
-          politicalCapital: prev.profile.politicalCapital + 10,
-          approval: Math.min(100, prev.profile.approval + 15)
-        }
-      }));
-    }
-    
-    setCurrentElection(prev => ({
-      ...prev,
-      status: 'completed',
-      results,
-      winner,
-      playerWon
-    }));
-    
-    setGameState('results');
-  };
-
-  const formatTime = (minutes) => {
-    const days = Math.floor(minutes / 1440);
-    const hours = Math.floor((minutes % 1440) / 60);
-    const mins = minutes % 60;
-    
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${mins}m`;
-    return `${mins}m`;
   };
 
   return (
@@ -591,9 +446,10 @@ const PoliticalGame = () => {
               />
               <button
                 onClick={handleLogin}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 rounded-lg font-bold hover:from-blue-700 hover:to-purple-700 transition-all"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white p-3 rounded-lg font-bold hover:from-blue-700 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Login
+                {loading ? 'Logging in...' : 'Login'}
               </button>
               <button
                 onClick={() => setGameState('register')}
@@ -656,9 +512,10 @@ const PoliticalGame = () => {
               />
               <button
                 onClick={handleRegister}
-                className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white p-3 rounded-lg font-bold hover:from-green-700 hover:to-blue-700 transition-all"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white p-3 rounded-lg font-bold hover:from-green-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Account
+                {loading ? 'Creating Account...' : 'Create Account'}
               </button>
               <button
                 onClick={() => setGameState('login')}
@@ -799,7 +656,7 @@ const PoliticalGame = () => {
               <div>
                 <label className="block text-white mb-2">Political Bio</label>
                 <textarea
-                  value={currentUser.profile.bio}
+                  value={currentUser.profile.bio || ''}
                   onChange={(e) => updateProfile('bio', e.target.value)}
                   placeholder="Tell voters about your background and political goals..."
                   className="w-full p-3 rounded-lg bg-white/20 text-white placeholder-white/60 border border-white/30 h-24"
@@ -830,7 +687,7 @@ const PoliticalGame = () => {
                 </div>
                 <div className="text-center text-white">
                   <DollarSign className="w-6 h-6 mx-auto mb-2" />
-                  <div className="text-2xl font-bold">${currentUser.profile.campaignFunds.toLocaleString()}</div>
+                  <div className="text-2xl font-bold">${currentUser.profile.campaignFunds?.toLocaleString() || '0'}</div>
                   <div className="text-sm opacity-80">Campaign Funds</div>
                 </div>
                 <div className="text-center text-white">
@@ -856,22 +713,21 @@ const PoliticalGame = () => {
               <h3 className="text-xl font-bold text-white mb-4">Active Elections ({activeElections.length})</h3>
               <div className="grid gap-4">
                 {activeElections.map((election) => {
-                  const userIsCandidate = election.candidates.some(c => c.playerId === currentUser.id);
-                  const canFile = election.status === 'accepting_candidates' && !userIsCandidate && currentUser.profile.campaignFunds >= election.filingFee;
-                  const canCampaign = election.status === 'campaign_active' && userIsCandidate;
+                  const userIsCandidate = election.candidates?.some(c => c.user_id === currentUser.id);
+                  const canFile = election.status === 'accepting_candidates' && !userIsCandidate && currentUser.profile.campaignFunds >= election.filing_fee;
                   
                   return (
                     <div key={election.id} className="bg-white/10 p-6 rounded-lg">
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h4 className="text-white font-bold text-lg">{election.office}</h4>
-                          <p className="text-white/70">{election.state} • Filing Fee: ${election.filingFee.toLocaleString()}</p>
+                          <p className="text-white/70">{election.state} • Filing Fee: ${election.filing_fee?.toLocaleString()}</p>
                           <div className="flex items-center mt-2">
                             <Clock className="w-4 h-4 text-white/60 mr-2" />
                             <span className="text-white/80 text-sm">
-                              {election.status === 'accepting_candidates' && `Filing ends in ${formatTime(election.timeRemaining)}`}
-                              {election.status === 'campaign_active' && `Election in ${formatTime(election.timeRemaining)}`}
-                              {election.status === 'voting_open' && `Voting ends in ${formatTime(election.timeRemaining)}`}
+                              {election.status === 'accepting_candidates' && 'Accepting candidates'}
+                              {election.status === 'campaign_active' && 'Campaign active'}
+                              {election.status === 'voting_open' && 'Voting open'}
                             </span>
                           </div>
                         </div>
@@ -881,12 +737,12 @@ const PoliticalGame = () => {
                           election.status === 'voting_open' ? 'bg-green-600 text-white' :
                           'bg-gray-600 text-white'
                         }`}>
-                          {election.status.replace('_', ' ').toUpperCase()}
+                          {election.status?.replace('_', ' ').toUpperCase()}
                         </div>
                       </div>
                       
                       {/* Candidates */}
-                      {election.candidates.length > 0 && (
+                      {election.candidates && election.candidates.length > 0 && (
                         <div className="mb-4">
                           <h5 className="text-white font-bold mb-2">Candidates ({election.candidates.length})</h5>
                           <div className="grid gap-2">
@@ -894,7 +750,7 @@ const PoliticalGame = () => {
                               <div key={idx} className="flex justify-between items-center bg-white/10 p-3 rounded">
                                 <div>
                                   <span className="text-white font-bold">
-                                    {candidate.name} {candidate.playerId === currentUser.id && '(You)'}
+                                    {candidate.first_name} {candidate.last_name} {candidate.user_id === currentUser.id && '(You)'}
                                   </span>
                                   <span className={`ml-2 px-2 py-1 rounded text-xs ${
                                     parties.find(p => p.name === candidate.party)?.color || 'bg-gray-500'
@@ -903,9 +759,9 @@ const PoliticalGame = () => {
                                   </span>
                                 </div>
                                 <div className="text-white text-sm">
-                                  {election.status === 'voting_open' && candidate.votes 
-                                    ? `${candidate.votes.toLocaleString()} votes`
-                                    : `${candidate.approval}% approval`
+                                  {election.status === 'voting_open' && candidate.total_votes 
+                                    ? `${candidate.total_votes.toLocaleString()} votes`
+                                    : `${candidate.approval_at_filing || 0}% approval`
                                   }
                                 </div>
                               </div>
@@ -919,30 +775,11 @@ const PoliticalGame = () => {
                         {canFile && (
                           <button
                             onClick={() => fileForElection(election)}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center"
+                            disabled={loading}
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Star className="w-4 h-4 mr-2" />
-                            File for ${election.filingFee.toLocaleString()}
-                          </button>
-                        )}
-                        
-                        {canCampaign && (
-                          <button
-                            onClick={() => startCampaign(election)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center"
-                          >
-                            <Vote className="w-4 h-4 mr-2" />
-                            Campaign Now
-                          </button>
-                        )}
-                        
-                        {election.status === 'voting_open' && (
-                          <button
-                            onClick={() => simulateElection()}
-                            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            View Results
+                            File for ${election.filing_fee?.toLocaleString()}
                           </button>
                         )}
                         
@@ -956,6 +793,14 @@ const PoliticalGame = () => {
                     </div>
                   );
                 })}
+                
+                {activeElections.length === 0 && (
+                  <div className="text-center text-white/60 py-8">
+                    <Vote className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No active elections at the moment.</p>
+                    <p className="text-sm mt-2">New elections will be created automatically.</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1040,281 +885,16 @@ const PoliticalGame = () => {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Campaign Screen */}
-        {gameState === 'campaign' && currentElection && currentUser && (
-          <div className="space-y-6">
-            {/* Campaign Header */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold text-white mb-2">
-                  Campaigning for {currentElection.office}
-                </h2>
-                <p className="text-white/80 mb-4">{currentElection.state}</p>
-                <div className="flex justify-center items-center space-x-6">
-                  <div className="text-center">
-                    <Clock className="w-6 h-6 mx-auto mb-1 text-white" />
-                    <div className="text-2xl font-bold text-white">{formatTime(campaignTimer)}</div>
-                    <div className="text-white/80 text-sm">Time Remaining</div>
+                
+                {allPlayers.length === 0 && (
+                  <div className="text-center text-white/60 py-8">
+                    <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No other players online at the moment.</p>
+                    <p className="text-sm mt-2">Invite friends to join the political arena!</p>
                   </div>
-                  <div className="text-center">
-                    <TrendingUp className="w-6 h-6 mx-auto mb-1 text-white" />
-                    <div className="text-2xl font-bold text-white">{currentUser.profile.approval}%</div>
-                    <div className="text-white/80 text-sm">Approval Rating</div>
-                  </div>
-                  <div className="text-center">
-                    <DollarSign className="w-6 h-6 mx-auto mb-1 text-white" />
-                    <div className="text-2xl font-bold text-white">${currentUser.profile.campaignFunds.toLocaleString()}</div>
-                    <div className="text-white/80 text-sm">Campaign Funds</div>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
-
-            {/* Campaign Actions */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <h3 className="text-xl font-bold text-white mb-4">Campaign Actions</h3>
-              <div className="grid md:grid-cols-2 gap-4">
-                {campaignActions.map((action, idx) => {
-                  const canAfford = currentUser.profile.campaignFunds >= action.cost;
-                  const hasTime = campaignTimer >= action.timeRequired;
-                  const canPerform = canAfford && hasTime;
-                  
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => performCampaignAction(action)}
-                      disabled={!canPerform}
-                      className={`p-4 rounded-lg text-left transition-all ${
-                        canPerform 
-                          ? 'bg-white/10 hover:bg-white/20 text-white border border-white/30 hover:border-white/50'
-                          : 'bg-white/5 text-white/50 border border-white/10 cursor-not-allowed'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="font-bold text-lg">{action.name}</div>
-                        <div className={`px-2 py-1 rounded text-xs ${
-                          action.riskLevel === 'low' ? 'bg-green-600' :
-                          action.riskLevel === 'medium' ? 'bg-yellow-600' :
-                          'bg-red-600'
-                        } text-white`}>
-                          {action.riskLevel.toUpperCase()} RISK
-                        </div>
-                      </div>
-                      
-                      <p className="text-sm mb-3 opacity-80">{action.description}</p>
-                      
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div>
-                          <div className="opacity-70">Cost</div>
-                          <div className="font-bold">${action.cost}</div>
-                        </div>
-                        <div>
-                          <div className="opacity-70">Approval</div>
-                          <div className="font-bold">
-                            {action.approvalBoost > 0 ? '+' : ''}{action.approvalBoost}%
-                          </div>
-                        </div>
-                        <div>
-                          <div className="opacity-70">Time</div>
-                          <div className="font-bold">{action.timeRequired}h</div>
-                        </div>
-                      </div>
-                      
-                      {!canAfford && (
-                        <div className="text-red-400 text-xs mt-2">Insufficient funds</div>
-                      )}
-                      {!hasTime && canAfford && (
-                        <div className="text-yellow-400 text-xs mt-2">Not enough time</div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Opponents */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <h3 className="text-xl font-bold text-white mb-4">Your Opponents</h3>
-              <div className="grid gap-3">
-                {currentElection.candidates.filter(c => c.playerId !== currentUser.id).map((candidate, idx) => (
-                  <div key={idx} className="bg-white/10 p-4 rounded-lg flex justify-between items-center">
-                    <div>
-                      <div className="text-white font-bold">{candidate.name}</div>
-                      <div className="text-white/70 text-sm">{candidate.party}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-white font-bold">{candidate.approval}%</div>
-                      <div className="text-white/70 text-sm">Approval</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex space-x-4">
-              <button
-                onClick={() => setGameState('lobby')}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold transition-all"
-              >
-                Back to Lobby
-              </button>
-              
-              {campaignTimer <= 0 && (
-                <button
-                  onClick={() => setGameState('voting')}
-                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold transition-all flex items-center"
-                >
-                  <Vote className="w-5 h-5 mr-2" />
-                  Proceed to Election
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Voting Screen */}
-        {gameState === 'voting' && currentElection && (
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 text-center space-y-6">
-            <h2 className="text-2xl font-bold text-white">Election Day!</h2>
-            <p className="text-white/80">Votes are being counted for {currentElection.office} in {currentElection.state}...</p>
-            
-            <div className="bg-white/10 p-6 rounded-lg">
-              <h3 className="text-white font-bold mb-4">Final Candidates</h3>
-              <div className="grid gap-3">
-                {currentElection.candidates.map((candidate, idx) => (
-                  <div key={idx} className={`p-3 rounded flex justify-between items-center ${
-                    candidate.playerId === currentUser.id ? 'bg-yellow-600/30 border border-yellow-400' : 'bg-white/10'
-                  }`}>
-                    <div className="text-white">
-                      <span className="font-bold">{candidate.name}</span>
-                      {candidate.playerId === currentUser.id && <span className="ml-2 text-yellow-400">(You)</span>}
-                      <div className="text-sm opacity-80">{candidate.party}</div>
-                    </div>
-                    <div className="text-white text-right">
-                      <div className="font-bold">{candidate.approval}%</div>
-                      <div className="text-sm opacity-80">Final Approval</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <button
-              onClick={simulateElection}
-              className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-8 py-4 rounded-lg font-bold text-lg hover:from-green-700 hover:to-blue-700 transition-all flex items-center mx-auto"
-            >
-              <Gavel className="w-6 h-6 mr-2" />
-              Count Votes & Declare Winner
-            </button>
-          </div>
-        )}
-
-        {/* Results Screen */}
-        {gameState === 'results' && currentElection && currentElection.results && (
-          <div className="space-y-6">
-            {/* Results Header */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 text-center">
-              <h2 className="text-2xl font-bold text-white mb-4">Election Results</h2>
-              <div className="text-xl font-bold mb-4">
-                <span className="text-white">Winner: </span>
-                <span className={currentElection.playerWon ? 'text-green-400' : 'text-white'}>
-                  {currentElection.winner.name}
-                </span>
-              </div>
-              
-              {currentElection.playerWon ? (
-                <div className="bg-green-600/20 border border-green-400 p-4 rounded-lg">
-                  <div className="text-green-400 font-bold text-xl mb-2">🎉 Congratulations!</div>
-                  <div className="text-white">You won the election for {currentElection.office}!</div>
-                  <div className="text-white/80 text-sm mt-2">
-                    +10 Political Capital • +15% Approval • Office: {currentElection.office}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-red-600/20 border border-red-400 p-4 rounded-lg">
-                  <div className="text-red-400 font-bold text-xl mb-2">Election Lost</div>
-                  <div className="text-white">Better luck next time! Keep building your political career.</div>
-                </div>
-              )}
-            </div>
-
-            {/* Detailed Results */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <h3 className="text-xl font-bold text-white mb-4">Final Vote Count</h3>
-              <div className="space-y-3">
-                {currentElection.results.map((candidate, idx) => (
-                  <div key={idx} className={`p-4 rounded-lg ${
-                    idx === 0 ? 'bg-green-600/30 border border-green-400' : 
-                    candidate.playerId === currentUser.id ? 'bg-yellow-600/20 border border-yellow-400' : 
-                    'bg-white/10'
-                  }`}>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <div className="text-white font-bold flex items-center">
-                          {idx === 0 && <Trophy className="w-5 h-5 mr-2 text-yellow-400" />}
-                          {candidate.name} 
-                          {candidate.playerId === currentUser.id && <span className="ml-2 text-yellow-400">(You)</span>}
-                        </div>
-                        <div className="text-white/70 text-sm">{candidate.party}</div>
-                      </div>
-                      <div className="text-white text-right">
-                        <div className="font-bold text-lg">{candidate.votes.toLocaleString()} votes</div>
-                        <div className="text-sm opacity-70">{candidate.votePercentage}%</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="mt-4 text-white/80 text-sm text-center">
-                Total Votes Cast: {currentElection.results.reduce((sum, c) => sum + c.votes, 0).toLocaleString()}
-              </div>
-            </div>
-
-            {/* Next Actions */}
-            <div className="flex space-x-4">
-              <button
-                onClick={() => setGameState('lobby')}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg font-bold transition-all"
-              >
-                Return to Lobby
-              </button>
-              
-              {currentElection.playerWon && (
-                <button
-                  onClick={() => setGameState('governance')}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg font-bold transition-all flex items-center justify-center"
-                >
-                  <Gavel className="w-5 h-5 mr-2" />
-                  Begin Governing
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Governance Screen (Placeholder) */}
-        {gameState === 'governance' && (
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 text-center">
-            <h2 className="text-2xl font-bold text-white mb-4">Governance Dashboard</h2>
-            <p className="text-white/80 mb-6">
-              Congratulations on your election victory! The governance system is coming in Phase 2.
-            </p>
-            <div className="text-white/60 text-sm mb-6">
-              Features coming soon: Legislative voting, budget management, policy implementation, and more!
-            </div>
-            <button
-              onClick={() => setGameState('lobby')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-bold transition-all"
-            >
-              Back to Lobby
-            </button>
           </div>
         )}
       </div>
