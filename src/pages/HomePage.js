@@ -17,9 +17,8 @@ const Fundraising = ({ onFundraise }) => (
                 <div className="text-sm text-gray-400">+$15,000, -2% Approval. Costs 25 AP. (Req: 40% AR)</div>
             </button>
              <button onClick={() => onFundraise('pac')} className="w-full text-left p-3 rounded-lg bg-yellow-600/20 hover:bg-yellow-600/30 transition-colors duration-150">
-                {/* Text to be confirmed in Task 3 */}
                 <div className="font-bold text-gray-100">Seek PAC Contribution</div>
-                <div className="text-sm text-gray-400">+$25,000, -5% Approval. Costs 5 AP & 5 PC. (Req: 10 PC)</div>
+                <div className="text-sm text-gray-400">Gain $25,000, -5% Approval. Cost: 5 AP & 5 PC. (Requires you to have at least 10 PC)</div>
             </button>
         </div>
     </div>
