@@ -1,7 +1,7 @@
 // frontend/src/pages/HomePage.js
 import React, { useState } from 'react'; // Removed useEffect
-// Removed Target, BarChart2 as election details are moving
-// Removed apiCall as data fetching is moving or changing scope
+import { Target, BarChart2 } from 'lucide-react'; // Keep if used by sub-components not shown in your latest HomePage paste
+import { apiCall } from '../api'; // ADD THIS LINE
 
 export default function HomePage({ currentUser, setCurrentUser }) { // Pass setCurrentUser
   const [error, setError] = useState('');
