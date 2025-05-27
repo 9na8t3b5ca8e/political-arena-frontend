@@ -28,5 +28,12 @@ const stateData = {
 };
 const allStates = Object.keys(stateData);
 
+export const stanceScale = [ // Ensure this is exported
+    { value: 1, label: 'Far Left' }, { value: 2, label: 'Left' },
+    { value: 3, label: 'Center-Left' }, { value: 4, label: 'Moderate' },
+    { value: 5, label: 'Center-Right' }, { value: 6, label: 'Right' },
+    { value: 7, label: 'Far Right' }
+];
+
 // UPDATED LINE: Use export instead of module.exports
 export { stateData, allStates };
