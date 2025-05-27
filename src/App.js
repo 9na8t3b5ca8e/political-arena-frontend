@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Vote, DollarSign, TrendingUp, Trophy, Map, User, Globe, Clock, Star, AlertCircle, Edit, Eye, Timer, Target, BarChart2, Briefcase } from 'lucide-react';
+import { stateData, allStates } from './state-data'; // CORRECTED IMPORT
 
-const API_BASE_URL = 'http://localhost:10000/api'; // Use localhost for dev, change for prod
+const API_BASE_URL = 'https://political-arena-backend.onrender.com/api'; // Changed for production
 
 const apiCall = async (endpoint, options = {}) => {
   const token = localStorage.getItem('authToken');
@@ -34,8 +35,9 @@ function PoliticalGame() {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [registerForm, setRegisterForm] = useState({ username: '', email: '', password: '', confirmPassword: '', firstName: '', lastName: '' });
 
-  const { allStates, stateData } = require('./state-data');
+  // This data is now imported correctly above
   const stanceScale = [{ value: 1, label: 'Far Left' }, { value: 2, label: 'Left' }, { value: 3, label: 'Center-Left' }, { value: 4, label: 'Moderate' }, { value: 5, label: 'Center-Right' }, { value: 6, label: 'Right' }, { value: 7, label: 'Far Right' }];
+
 
   const loadUserProfile = useCallback(async () => {
     try {
