@@ -41,6 +41,7 @@ function App() {
       const fetchGameDate = async () => {
         try {
           const dateData = await apiCall('/game/date');
+          console.log("Fetched Game Date:", dateData); // DEBUG LOG
           setGameDate(dateData);
         } catch (error) {
           console.error("Failed to fetch game date:", error);
