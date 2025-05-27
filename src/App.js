@@ -115,6 +115,7 @@ function PoliticalGame() {
   const handleFundraise = async (type) => {
     try {
         setLoading(true); setError('');
+        // CORRECTED LINE: The URL is now '/actions/fundraise'
         const res = await apiCall('/actions/fundraise', { method: 'POST', body: JSON.stringify({type}) });
         setCurrentUser(prev => ({ ...prev, ...res.newStats}));
     } catch (err) { setError(err.message); }
