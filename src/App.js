@@ -1,5 +1,510 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Vote, DollarSign, TrendingUp, MessageCircle, Trophy, Calendar, Map, User, Settings, Globe, Clock, Star, AlertCircle, CheckCircle, Gavel } from 'lucide-react';
+{selectedPlayer.profile.age && (
+                    <div className="flex justify-between">
+                      <span className="text-white/80">Age:</span>
+                      <span className="text-white font-bold">{selectedPlayer.profile.age}</span>
+                    </div>
+                  )}
+                  {selectedPlayer.profile.gender && (
+                    <div className="flex justify-between">
+                      <span className="text-white/80">Gender:</span>
+                      <span className="text-white font-bold">{selectedPlayer.profile.gender}</span>
+                    </div>
+                  )}
+                  {selectedPlayer.profile.race && (
+                    <div className="flex justify-between">
+                      <span className="text-white/80">Race/Ethnicity:</span>
+                      <span className="text-white font-bold">{selectedPlayer.profile.race}</span>
+                    </div>
+                  )}
+                  {selectedPlayer.profile.religion && (
+                    <div className="flex justify-between">
+                      <span className="text-white/80">Religion:</span>
+                      <span className="text-white font-bold">{selectedPlayer.profile.religion}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Political Stats */}
+              <div className="bg-white/10 p-6 rounded-lg">
+                <h3 className="text-xl font-bold text-white mb-4">Political Stats</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-white/80">Approval Rating:</span>
+                    <span className="text-white font-bold">{selectedPlayer.profile.approval}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/80">Political Capital:</span>
+                    <span className="text-white font-bold">{selectedPlayer.profile.politicalCapital}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/80">Elections Won:</span>
+                    <span className="text-white font-bold">{selectedPlayer.profile.electionsWon || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/80">Elections Lost:</span>
+                    <span className="text-white font-bold">{selectedPlayer.profile.electionsLost || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/80">Total Votes Received:</span>
+                    <span className="text-white font-bold">{selectedPlayer.profile.totalVotes?.toLocaleString() || '0'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/80">Member Since:</span>
+                    <span className="text-white font-bold">
+                      {new Date(selectedPlayer.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Political Positions */}
+              <div className="bg-white/10 p-6 rounded-lg">
+                <h3 className="text-xl font-bold text-white mb-4">Political Positions</h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-white/80">Economic Policy:</span>
+                      <span className="text-white font-bold">
+                        {getStanceLabel(selectedPlayer.profile.economicStance)}
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/20 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${getStanceColor(selectedPlayer.profile.economicStance)}`}
+                        style={{ width: `${(selectedPlayer.profile.economicStance / 7) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-white/80">Social Policy:</span>
+                      <span className="text-white font-bold">
+                        {getStanceLabel(selectedPlayer.profile.socialStance)}
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/20 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${getStanceColor(selectedPlayer.profile.socialStance)}`}
+                        style={{ width: `${(selectedPlayer.profile.socialStance / 7) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bio */}
+              <div className="bg-white/10 p-6 rounded-lg">
+                <h3 className="text-xl font-bold text-white mb-4">Political Bio</h3>
+                <p className="text-white/80">
+                  {selectedPlayer.profile.bio || 'No bio provided yet.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Fundraising Activities - Enhanced */}
+        {gameState === 'lobby' && (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-xl font-bold text-white mb-4">Build Your War Chest</h3>
+            <p className="text-white/80 text-sm mb-4">Raise funds before declaring candidacy for higher offices</p>
+            
+            <div className="grid md:grid-cols-3 gap-4">
+              <button
+                onClick={() => performFundraisingAction('donor_meeting')}
+                disabled={loading || currentUser.profile.approval < 5}
+                className="bg-green-600/20 hover:bg-green-600/30 border border-green-400 text-white p-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="font-bold mb-2">Donor Meeting</div>
+                <div className="text-sm mb-2">Meet with wealthy donors</div>
+                <div className="text-xs">+$500 • -2% Approval</div>
+                <div className="text-xs text-green-400 mt-1">
+                  {currentUser.profile.approval < 5 ? 'Need 5% Approval' : 'Available'}
+                </div>
+              </button>
+
+              <button
+                onClick={() => performFundraisingAction('grassroots_event')}
+                disabled={loading}
+                className="bg-blue-600/20 hover:bg-blue-600/30 border border-blue-400 text-white p-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="font-bold mb-2">Grassroots Event</div>
+                <div className="text-sm mb-2">Small donor fundraiser</div>
+                <div className="text-xs">+$200 • +1% Approval</div>
+                <div className="text-xs text-blue-400 mt-1">Always Available</div>
+              </button>
+
+              <button
+                onClick={() => performFundraisingAction('pac_contribution')}
+                disabled={loading || currentUser.profile.politicalCapital < 5}
+                className="bg-purple-600/20 hover:bg-purple-600/30 border border-purple-400 text-white p-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="font-bold mb-2">PAC Contribution</div>
+                <div className="text-sm mb-2">Political Action Committee</div>
+                <div className="text-xs">+$1,500 • -5 Political Capital</div>
+                <div className="text-xs text-purple-400 mt-1">
+                  {currentUser.profile.politicalCapital < 5 ? 'Need 5 Political Capital' : 'Available'}
+                </div>
+              </button>
+            </div>
+
+            <div className="mt-4 bg-white/10 p-4 rounded-lg">
+              <h4 className="text-white font-bold mb-2">Fundraising Strategy:</h4>
+              <div className="grid md:grid-cols-2 gap-4 text-white/80 text-sm">
+                <ul className="space-y-1">
+                  <li>• State Legislature: $500 filing fee</li>
+                  <li>• Governor races: $2,000 filing fee</li>
+                  <li>• House Representative: $1,000 filing fee</li>
+                </ul>
+                <ul className="space-y-1">
+                  <li>• Senate races: $5,000 filing fee</li>
+                  <li>• Presidential races: $10,000 filing fee</li>
+                  <li>• Build approval with grassroots events</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PoliticalGame;
+
+        {/* Enhanced Profile Edit Modal */}
+        {showEditProfile && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <h2 className="text-2xl font-bold text-white mb-6">Edit Your Profile</h2>
+              
+              <div className="space-y-6">
+                {/* Basic Info */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-white mb-2">First Name</label>
+                    <input
+                      type="text"
+                      value={currentUser.profile.firstName || ''}
+                      onChange={(e) => updateProfile('firstName', e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/20 text-white placeholder-white/60 border border-white/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-white mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      value={currentUser.profile.lastName || ''}
+                      onChange={(e) => updateProfile('lastName', e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/20 text-white placeholder-white/60 border border-white/30"
+                    />
+                  </div>
+                </div>
+
+                {/* Demographics */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-white mb-2">Age</label>
+                    <input
+                      type="number"
+                      min="18"
+                      max="120"
+                      value={currentUser.profile.age || ''}
+                      onChange={(e) => updateProfile('age', parseInt(e.target.value) || '')}
+                      className="w-full p-3 rounded-lg bg-white/20 text-white placeholder-white/60 border border-white/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-white mb-2">Gender</label>
+                    <select
+                      value={currentUser.profile.gender || ''}
+                      onChange={(e) => updateProfile('gender', e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/30"
+                    >
+                      <option value="">Select Gender</option>
+                      {genderOptions.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-white mb-2">Race/Ethnicity</label>
+                    <select
+                      value={currentUser.profile.race || ''}
+                      onChange={(e) => updateProfile('race', e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/30"
+                    >
+                      <option value="">Select Race/Ethnicity</option>
+                      {raceOptions.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-white mb-2">Religion</label>
+                    <select
+                      value={currentUser.profile.religion || ''}
+                      onChange={(e) => updateProfile('religion', e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/30"
+                    >
+                      <option value="">Select Religion</option>
+                      {religionOptions.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Political Info */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-white mb-2">Political Party</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {parties.map((party) => (
+                        <button
+                          key={party.name}
+                          onClick={() => updateProfile('party', party.name)}
+                          className={`p-3 rounded-lg border-2 transition-all ${
+                            currentUser.profile.party === party.name
+                              ? `${party.color} border-white text-white`
+                              : 'bg-white/10 border-white/30 text-white hover:bg-white/20'
+                          }`}
+                        >
+                          <div className="font-bold">{party.abbreviation}</div>
+                          <div className="text-xs">{party.name}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-white mb-2">Home State</label>
+                    <select
+                      value={currentUser.profile.homeState || ''}
+                      onChange={(e) => updateProfile('homeState', e.target.value)}
+                      className="w-full p-3 rounded-lg bg-white/20 text-white border border-white/30"
+                    >
+                      <option value="">Select State</option>
+                      {Object.keys(stateData).map(state => (
+                        <option key={state} value={state}>{state}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Political Stances */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-bold text-white">Political Positions</h3>
+                  
+                  <div>
+                    <label className="block text-white mb-2">
+                      Economic Policy: {getStanceLabel(currentUser.profile.economicStance)}
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <span className="text-white/80 text-sm">Far Left</span>
+                      <input
+                        type="range"
+                        min="1"
+                        max="7"
+                        value={currentUser.profile.economicStance}
+                        onChange={(e) => updateProfile('economicStance', parseInt(e.target.value))}
+                        className="flex-1"
+                      />
+                      <span className="text-white/80 text-sm">Far Right</span>
+                    </div>
+                    <div className={`mt-2 p-2 rounded text-white text-center ${getStanceColor(currentUser.profile.economicStance)}`}>
+                      {getStanceLabel(currentUser.profile.economicStance)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-white mb-2">
+                      Social Policy: {getStanceLabel(currentUser.profile.socialStance)}
+                    </label>
+                    <div className="flex items-center space-x-4">
+                      <span className="text-white/80 text-sm">Far Left</span>
+                      <input
+                        type="range"
+                        min="1"
+                        max="7"
+                        value={currentUser.profile.socialStance}
+                        onChange={(e) => updateProfile('socialStance', parseInt(e.target.value))}
+                        className="flex-1"
+                      />
+                      <span className="text-white/80 text-sm">Far Right</span>
+                    </div>
+                    <div className={`mt-2 p-2 rounded text-white text-center ${getStanceColor(currentUser.profile.socialStance)}`}>
+                      {getStanceLabel(currentUser.profile.socialStance)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bio */}
+                <div>
+                  <label className="block text-white mb-2">Political Bio</label>
+                  <textarea
+                    value={currentUser.profile.bio || ''}
+                    onChange={(e) => updateProfile('bio', e.target.value)}
+                    placeholder="Tell voters about your background and political goals..."
+                    className="w-full p-3 rounded-lg bg-white/20 text-white placeholder-white/60 border border-white/30 h-24"
+                  />
+                </div>
+
+                {/* Buttons */}
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => setShowEditProfile(false)}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg font-bold transition-all"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={() => setShowEditProfile(false)}
+                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg font-bold transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Player Profile View Screen */}
+        {gameState === 'playerProfile' && selectedPlayer && (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">
+                {selectedPlayer.profile.firstName} {selectedPlayer.profile.lastName} (@{selectedPlayer.username})
+              </h2>
+              <button
+                onClick={() => {
+                  setGameState('lobby');
+                  setSelectedPlayer(null);
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-bold transition-all"
+              >
+                Back to Lobby
+              </button>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Basic Info */}
+              <div className="bg-white/10 p-6 rounded-lg">
+                <h3 className="text-xl font-bold text-white mb-4">Basic Information</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-white/80">Full Name:</span>
+                    <span className="text-white font-bold">
+                      {selectedPlayer.profile.firstName} {selectedPlayer.profile.lastName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/80">Party:</span>
+                    <span className={`px-2 py-1 rounded text-xs text-white ${
+                      parties.find(p => p.name === selectedPlayer.profile.party)?.color || 'bg-gray-500'
+                    }`}>
+                      {selectedPlayer.profile.party}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/80">Home State:</span>
+                    <span className="text-white font-bold">{selectedPlayer.profile.homeState}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-white/80">Current Office:</span>
+                    <span className="text-white font-bold">{selectedPlayer.profile.currentOffice}</span>
+                  </div>
+                  {selectedPlayer.profile.age && (
+                    <div className="flex justify-between">
+                      <span className="text-white/80">Age:</span>
+                      <span className="text-white font-bold">{selectedPlayer.profile.age}</span>
+                    </div>            {/* Active Elections */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+              <h3 className="text-xl font-bold text-white mb-4">Active Elections ({activeElections.length})</h3>
+              <div className="grid gap-4">
+                {activeElections.map((election) => {
+                  const userIsCandidate = election.candidates?.some(c => c.user_id === currentUser.id);
+                  const canFile = election.status === 'accepting_candidates' && 
+                                 !userIsCandidate && 
+                                 currentUser.profile.campaignFunds >= election.filing_fee &&
+                                 election.state === currentUser.profile.homeState; // STATE RESTRICTION
+                  
+                  const nextDeadline = getNextDeadline(election);
+                  const timeRemaining = (nextDeadline.time - Date.now()) / (1000 * 60 * 60); // hours
+                  
+                  return (
+                    <div key={election.id} className="bg-white/10 p-6 rounded-lg">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h4 className="text-white font-bold text-lg">{election.office}</h4>
+                          <p className="text-white/70">{election.state} • Filing Fee: ${election.filing_fee?.toLocaleString()}</p>
+                          
+                          {/* ENHANCED TIMING INFO */}
+                          <div className="flex items-center mt-2 space-x-4">
+                            <div className="flex items-center">
+                              <Timer className="w-4 h-4 text-white/60 mr-2" />
+                              <span className="text-white/80 text-sm">
+                                {nextDeadline.type}: {formatTimeRemaining(timeRemaining)}
+                              </span>
+                            </div>
+                            <div className="text-white/60 text-xs">
+                              {election.candidate_count || 0} candidates
+                            </div>
+                          </div>
+                          
+                          {/* STATE RESTRICTION WARNING */}
+                          {election.state !== currentUser.profile.homeState && (
+                            <div className="mt-2 text-yellow-400 text-xs flex items-center">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              Only {election.state} residents can file
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className={`px-3 py-1 rounded-full text-sm font-bold ${
+                          getElectionStatus(election) === 'Filing Open' ? 'bg-yellow-600 text-white' :
+                          getElectionStatus(election) === 'Campaign Active' ? 'bg-blue-600 text-white' :
+                          getElectionStatus(election) === 'Voting Open' ? 'bg-green-600 text-white' :
+                          'bg-gray-600 text-white'
+                        }`}>
+                          {getElectionStatus(election)}
+                        </div>
+                      </div>
+                      
+                      {/* Candidates */}
+                      {election.candidates && election.candidates.length > 0 && (
+                        <div className="mb-4">
+                          <h5 className="text-white font-bold mb-2">Candidates ({election.candidates.length})</h5>
+                          <div className="grid gap-2">
+                            {election.candidates.map((candidate, idx) => (
+                              <div key={idx} className="flex justify-between items-center bg-white/10 p-3 rounded">
+                                <div className="flex items-center">
+                                  <span className="text-white font-bold">
+                                    {candidate.first_name} {candidate.last_name} {candidate.user_id === currentUser.id && '(You)'}
+                                  </span>
+                                  <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                                    parties.find(p => p.name === candidate.party)?.color || 'bg-gray-500'
+                                  } text-white`}>
+                                    {parties.find(p => p.name === candidate.party)?.abbreviation || 'I'}
+                                  </span>
+                                  {candidate.user_id !== currentUser.id && (
+                                    <button
+                                      onClick={() => loadPlayerProfile(candidate.user_id)}
+                                      className="ml-2 text-white/60 hover:text-white"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="text-white text-sm">
+                                  {election.status === 'voting_open' && candidate.total_votes 
+                import React, { useState, useEffect } from 'react';
+import { Users, Vote, DollarSign, TrendingUp, MessageCircle, Trophy, Calendar, Map, User, Settings, Globe, Clock, Star, AlertCircle, CheckCircle, Gavel, Edit, Eye, Timer } from 'lucide-react';
 
 // API Configuration
 const API_BASE_URL = 'https://political-arena-backend.onrender.com/api';
@@ -35,8 +540,8 @@ const PoliticalGame = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [allPlayers, setAllPlayers] = useState([]);
   const [activeElections, setActiveElections] = useState([]);
-  const [currentElection, setCurrentElection] = useState(null);
-  const [campaignTimer, setCampaignTimer] = useState(0);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [showEditProfile, setShowEditProfile] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -47,6 +552,16 @@ const PoliticalGame = () => {
       loadUserProfile();
     }
   }, []);
+
+  // Auto-refresh data every 30 seconds
+  useEffect(() => {
+    if (gameState === 'lobby') {
+      const interval = setInterval(() => {
+        loadGameData();
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [gameState]);
 
   // Load user profile from API
   const loadUserProfile = async () => {
@@ -68,7 +583,12 @@ const PoliticalGame = () => {
           currentOffice: profile.current_office,
           politicalCapital: profile.political_capital,
           approval: profile.approval_rating,
-          campaignFunds: profile.campaign_funds
+          campaignFunds: profile.campaign_funds,
+          // New demographic fields
+          gender: profile.gender,
+          race: profile.race,
+          religion: profile.religion,
+          age: profile.age
         }
       });
       
@@ -116,7 +636,77 @@ const PoliticalGame = () => {
     }
   };
 
-  // Political stance mapping
+  // Load specific player profile
+  const loadPlayerProfile = async (playerId) => {
+    try {
+      setLoading(true);
+      const profile = await apiCall(`/players/${playerId}/profile`);
+      setSelectedPlayer({
+        id: profile.id,
+        username: profile.username,
+        createdAt: profile.created_at,
+        profile: {
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          party: profile.party,
+          homeState: profile.home_state,
+          currentOffice: profile.current_office,
+          approval: profile.approval_rating,
+          politicalCapital: profile.political_capital,
+          totalVotes: profile.total_votes_received,
+          electionsWon: profile.elections_won,
+          electionsLost: profile.elections_lost,
+          economicStance: profile.economic_stance,
+          socialStance: profile.social_stance,
+          bio: profile.bio,
+          gender: profile.gender,
+          race: profile.race,
+          religion: profile.religion,
+          age: profile.age
+        }
+      });
+      setGameState('playerProfile');
+    } catch (error) {
+      setError(error.message || 'Failed to load player profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Utility functions
+  const formatTimeRemaining = (hours) => {
+    if (hours < 0) return 'Ended';
+    if (hours < 1) return `${Math.floor(hours * 60)}m`;
+    if (hours < 24) return `${Math.floor(hours)}h ${Math.floor((hours % 1) * 60)}m`;
+    const days = Math.floor(hours / 24);
+    const remainingHours = Math.floor(hours % 24);
+    return `${days}d ${remainingHours}h`;
+  };
+
+  const getElectionStatus = (election) => {
+    const now = Date.now();
+    const filingDeadline = new Date(election.filing_deadline).getTime();
+    const campaignStart = new Date(election.campaign_start).getTime();
+    const electionDate = new Date(election.election_date).getTime();
+    
+    if (now < filingDeadline) return 'Filing Open';
+    if (now < campaignStart) return 'Filing Closed';
+    if (now < electionDate) return 'Campaign Active';
+    if (now < electionDate + (24 * 60 * 60 * 1000)) return 'Voting Open';
+    return 'Completed';
+  };
+
+  const getNextDeadline = (election) => {
+    const now = Date.now();
+    const filingDeadline = new Date(election.filing_deadline).getTime();
+    const campaignStart = new Date(election.campaign_start).getTime();
+    const electionDate = new Date(election.election_date).getTime();
+    
+    if (now < filingDeadline) return { type: 'Filing ends', time: filingDeadline };
+    if (now < campaignStart) return { type: 'Campaign starts', time: campaignStart };
+    if (now < electionDate) return { type: 'Election day', time: electionDate };
+    return { type: 'Voting ends', time: electionDate + (24 * 60 * 60 * 1000) };
+  };
   const stanceScale = [
     { value: 1, label: 'Far Left', color: 'bg-blue-800' },
     { value: 2, label: 'Left', color: 'bg-blue-600' },
@@ -708,57 +1298,6 @@ const PoliticalGame = () => {
               </div>
             </div>
 
-            {/* Active Elections */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <h3 className="text-xl font-bold text-white mb-4">Active Elections ({activeElections.length})</h3>
-              <div className="grid gap-4">
-                {activeElections.map((election) => {
-                  const userIsCandidate = election.candidates?.some(c => c.user_id === currentUser.id);
-                  const canFile = election.status === 'accepting_candidates' && !userIsCandidate && currentUser.profile.campaignFunds >= election.filing_fee;
-                  
-                  return (
-                    <div key={election.id} className="bg-white/10 p-6 rounded-lg">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h4 className="text-white font-bold text-lg">{election.office}</h4>
-                          <p className="text-white/70">{election.state} • Filing Fee: ${election.filing_fee?.toLocaleString()}</p>
-                          <div className="flex items-center mt-2">
-                            <Clock className="w-4 h-4 text-white/60 mr-2" />
-                            <span className="text-white/80 text-sm">
-                              {election.status === 'accepting_candidates' && 'Accepting candidates'}
-                              {election.status === 'campaign_active' && 'Campaign active'}
-                              {election.status === 'voting_open' && 'Voting open'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          election.status === 'accepting_candidates' ? 'bg-yellow-600 text-white' :
-                          election.status === 'campaign_active' ? 'bg-blue-600 text-white' :
-                          election.status === 'voting_open' ? 'bg-green-600 text-white' :
-                          'bg-gray-600 text-white'
-                        }`}>
-                          {election.status?.replace('_', ' ').toUpperCase()}
-                        </div>
-                      </div>
-                      
-                      {/* Candidates */}
-                      {election.candidates && election.candidates.length > 0 && (
-                        <div className="mb-4">
-                          <h5 className="text-white font-bold mb-2">Candidates ({election.candidates.length})</h5>
-                          <div className="grid gap-2">
-                            {election.candidates.map((candidate, idx) => (
-                              <div key={idx} className="flex justify-between items-center bg-white/10 p-3 rounded">
-                                <div>
-                                  <span className="text-white font-bold">
-                                    {candidate.first_name} {candidate.last_name} {candidate.user_id === currentUser.id && '(You)'}
-                                  </span>
-                                  <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                                    parties.find(p => p.name === candidate.party)?.color || 'bg-gray-500'
-                                  } text-white`}>
-                                    {parties.find(p => p.name === candidate.party)?.abbreviation || 'I'}
-                                  </span>
-                                </div>
-                                <div className="text-white text-sm">
                                   {election.status === 'voting_open' && candidate.total_votes 
                                     ? `${candidate.total_votes.toLocaleString()} votes`
                                     : `${candidate.approval_at_filing || 0}% approval`
@@ -783,10 +1322,18 @@ const PoliticalGame = () => {
                           </button>
                         )}
                         
-                        {!userIsCandidate && election.status !== 'accepting_candidates' && (
+                        {election.state !== currentUser.profile.homeState && (
+                          <div className="text-yellow-400 text-sm py-2 flex items-center">
+                            <AlertCircle className="w-4 h-4 mr-2" />
+                            Must be {election.state} resident to file
+                          </div>
+                        )}
+                        
+                        {!canFile && election.state === currentUser.profile.homeState && election.status !== 'accepting_candidates' && (
                           <div className="text-white/60 text-sm py-2">
-                            {election.status === 'campaign_active' && 'Campaign in progress'}
-                            {election.status === 'voting_open' && 'Voting in progress'}
+                            {getElectionStatus(election) === 'Campaign Active' && 'Campaign in progress'}
+                            {getElectionStatus(election) === 'Voting Open' && 'Voting in progress'}
+                            {getElectionStatus(election) === 'Filing Closed' && 'Filing period ended'}
                           </div>
                         )}
                       </div>
@@ -804,77 +1351,78 @@ const PoliticalGame = () => {
               </div>
             </div>
 
-            {/* Fundraising Activities */}
+            {/* Enhanced Player Stats with Edit Button */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-              <h3 className="text-xl font-bold text-white mb-4">Build Your War Chest</h3>
-              <p className="text-white/80 text-sm mb-4">Raise funds before declaring candidacy for higher offices</p>
-              
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-white">Your Profile</h3>
                 <button
-                  onClick={() => performFundraisingAction('donor_meeting')}
-                  disabled={loading || currentUser.profile.approval < 5}
-                  className="bg-green-600/20 hover:bg-green-600/30 border border-green-400 text-white p-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setShowEditProfile(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-bold transition-all flex items-center"
                 >
-                  <div className="font-bold mb-2">Donor Meeting</div>
-                  <div className="text-sm mb-2">Meet with wealthy donors</div>
-                  <div className="text-xs">+$500 • -2% Approval</div>
-                  <div className="text-xs text-green-400 mt-1">Requires 5% Approval</div>
-                </button>
-
-                <button
-                  onClick={() => performFundraisingAction('grassroots_event')}
-                  disabled={loading}
-                  className="bg-blue-600/20 hover:bg-blue-600/30 border border-blue-400 text-white p-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="font-bold mb-2">Grassroots Event</div>
-                  <div className="text-sm mb-2">Small donor fundraiser</div>
-                  <div className="text-xs">+$200 • +1% Approval</div>
-                  <div className="text-xs text-blue-400 mt-1">Always Available</div>
-                </button>
-
-                <button
-                  onClick={() => performFundraisingAction('pac_contribution')}
-                  disabled={loading || currentUser.profile.politicalCapital < 5}
-                  className="bg-purple-600/20 hover:bg-purple-600/30 border border-purple-400 text-white p-4 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className="font-bold mb-2">PAC Contribution</div>
-                  <div className="text-sm mb-2">Political Action Committee</div>
-                  <div className="text-xs">+$1,500 • -5 Political Capital</div>
-                  <div className="text-xs text-purple-400 mt-1">Requires 5 Political Capital</div>
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Profile
                 </button>
               </div>
-
-              <div className="mt-4 bg-white/10 p-4 rounded-lg">
-                <h4 className="text-white font-bold mb-2">Fundraising Tips:</h4>
-                <ul className="text-white/80 text-sm space-y-1">
-                  <li>• Governor races require $2,000 filing fee</li>
-                  <li>• Senate races require $5,000 filing fee</li>
-                  <li>• Presidential races require $10,000 filing fee</li>
-                  <li>• Balance donor meetings (quick money) vs grassroots (approval boost)</li>
-                  <li>• Use political capital for major PAC contributions</li>
-                </ul>
+              
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="text-center text-white">
+                  <TrendingUp className="w-6 h-6 mx-auto mb-2" />
+                  <div className="text-2xl font-bold">{currentUser.profile.approval}%</div>
+                  <div className="text-sm opacity-80">Approval</div>
+                </div>
+                <div className="text-center text-white">
+                  <DollarSign className="w-6 h-6 mx-auto mb-2" />
+                  <div className="text-2xl font-bold">${currentUser.profile.campaignFunds?.toLocaleString() || '0'}</div>
+                  <div className="text-sm opacity-80">Campaign Funds</div>
+                </div>
+                <div className="text-center text-white">
+                  <Trophy className="w-6 h-6 mx-auto mb-2" />
+                  <div className="text-2xl font-bold">{currentUser.profile.politicalCapital}</div>
+                  <div className="text-sm opacity-80">Political Capital</div>
+                </div>
+                <div className="text-center text-white">
+                  <Map className="w-6 h-6 mx-auto mb-2" />
+                  <div className="text-lg font-bold">{currentUser.profile.currentOffice}</div>
+                  <div className="text-sm opacity-80">Current Office</div>
+                </div>
+                <div className="text-center text-white">
+                  <Globe className="w-6 h-6 mx-auto mb-2" />
+                  <div className="text-lg font-bold">{currentUser.profile.homeState}</div>
+                  <div className="text-sm opacity-80">Home State</div>
+                </div>
               </div>
             </div>
 
-            {/* Online Players */}
+            {/* Enhanced Online Players with Profile Viewing */}
             <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
               <h3 className="text-xl font-bold text-white mb-4">Online Politicians ({allPlayers.length})</h3>
               <div className="grid gap-3">
                 {allPlayers.map((player) => (
                   <div key={player.id} className="bg-white/10 p-4 rounded-lg flex justify-between items-center">
-                    <div>
-                      <div className="text-white font-bold">
-                        {player.profile.firstName} {player.profile.lastName} ({player.username})
-                        {player.id === currentUser.id && ' (You)'}
+                    <div className="flex items-center space-x-3">
+                      <div>
+                        <div className="text-white font-bold flex items-center">
+                          {player.profile.firstName} {player.profile.lastName} ({player.username})
+                          {player.id === currentUser.id && <span className="ml-2 text-yellow-400">(You)</span>}
+                        </div>
+                        <div className="text-white/70 text-sm">
+                          {player.profile.party} • {player.profile.homeState} • {player.profile.currentOffice}
+                        </div>
+                        <div className="text-white/60 text-xs mt-1">
+                          Approval: {player.profile.approval}% • 
+                          Capital: {player.profile.politicalCapital}
+                        </div>
                       </div>
-                      <div className="text-white/70 text-sm">
-                        {player.profile.party} • {player.profile.homeState} • {player.profile.currentOffice}
-                      </div>
-                      <div className="text-white/60 text-xs mt-1">
-                        Approval: {player.profile.approval}% • 
-                        Funds: ${player.profile.campaignFunds?.toLocaleString() || '0'} • 
-                        Capital: {player.profile.politicalCapital}
-                      </div>
+                      
+                      {player.id !== currentUser.id && (
+                        <button
+                          onClick={() => loadPlayerProfile(player.id)}
+                          className="text-white/60 hover:text-white transition-all"
+                          title="View Profile"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className={`px-2 py-1 rounded text-xs text-white ${
