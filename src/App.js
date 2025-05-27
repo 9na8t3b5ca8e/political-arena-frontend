@@ -146,48 +146,70 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup, onAuthSuccess }
 };
 
 const ProfileSetup = ({ currentUser, onSetupComplete }) => {
-    // Initialize local state with currentUser data passed in
     const [profileData, setProfileData] = useState({
         ...currentUser,
-        economic_stance: currentUser.economic_stance || 4, // Ensure default if not set
-        social_stance: currentUser.social_stance || 4,   // Ensure default if not set
+        economic_stance: currentUser.economic_stance || 4,
+        social_stance: currentUser.social_stance || 4,
+        // Ensure other fields that might be null on a new profile have defaults if needed by inputs
+        party: currentUser.party || '',
+        home_state: currentUser.home_state || '',
+        bio: currentUser.bio || ''
     });
-    const [error, setError] = useState(''); // For displaying errors
+    const [error, setError] = useState('');
 
-    const getStanceLabel = (value) => stanceScale.find(s => s.value === value)?.label || 'Moderate';
+    const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value, 10))?.label || 'Moderate';
 
-    // Helper function for state alignment (can be expanded)
     const calculateStateAlignment = (playerEconomic, playerSocial, stateName) => {
-        if (!stateName || !stateData[stateName]) return { economicMatch: 'N/A', socialMatch: 'N/A', overallAlignment: 'N/A' };
+        if (!stateName || !stateData[stateName] || playerEconomic === undefined || playerSocial === undefined) {
+            return { economicMatch: 'N/A', socialMatch: 'N/A', overallAlignment: 'N/A' };
+        }
         
         const stateEconomic = stateData[stateName]?.economic || 4;
         const stateSocial = stateData[stateName]?.social || 4;
         
-        const economicDiff = Math.abs(playerEconomic - stateEconomic);
-        const socialDiff = Math.abs(playerSocial - stateSocial);
+        const economicDiff = Math.abs(parseInt(playerEconomic, 10) - stateEconomic);
+        const socialDiff = Math.abs(parseInt(playerSocial, 10) - stateSocial);
         
-        // Simplified match percentage (can be made more sophisticated)
         const economicMatch = Math.max(0, 100 - (economicDiff * 15));
         const socialMatch = Math.max(0, 100 - (socialDiff * 15));
-        const overallAlignment = Math.max(0, 100 - ((economicDiff + socialDiff) * 10)); // Adjusted overall calculation
+        const overallAlignment = Math.max(0, 100 - ((economicDiff + socialDiff) * 10));
 
         return { economicMatch, socialMatch, overallAlignment };
     };
 
-    const alignment = calculateStateAlignment(profileData.economic_stance, profileData.social_stance, profileData.home_state);
+    // Ensure profileData values are numbers before calculating alignment
+    const alignment = calculateStateAlignment(
+        parseInt(profileData.economic_stance, 10),
+        parseInt(profileData.social_stance, 10),
+        profileData.home_state
+    );
 
-    const handleUpdate = async (field, value) => {
-        // Ensure numeric values for stances
-        const valToUpdate = (field === 'economicStance' || field === 'socialStance') ? parseInt(value, 10) : value;
+    const handleUpdate = async (fieldKey, value) => {
+        // This is the key in profileData state (e.g., 'economic_stance', 'home_state')
+        const localStateFieldKey = fieldKey; 
         
-        setProfileData(prev => ({ ...prev, [field]: valToUpdate }));
+        // This is the key expected by the backend API (e.g., 'economicStance', 'homeState')
+        // We'll map them if they are different, otherwise use the same.
+        let apiFieldKey = fieldKey;
+        if (fieldKey === 'economic_stance') apiFieldKey = 'economicStance';
+        if (fieldKey === 'social_stance') apiFieldKey = 'socialStance';
+        if (fieldKey === 'home_state') apiFieldKey = 'homeState';
+
+
+        const valToUpdate = (localStateFieldKey === 'economic_stance' || localStateFieldKey === 'social_stance') 
+                            ? parseInt(value, 10) 
+                            : value;
         
-        // Send to backend
+        setProfileData(prev => ({ ...prev, [localStateFieldKey]: valToUpdate }));
+        
         try {
-            setError(''); // Clear previous errors
-            await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify({ [field]: valToUpdate }) });
+            setError('');
+            // Use the apiFieldKey for the body sent to the backend
+            await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify({ [apiFieldKey]: valToUpdate }) });
         } catch (err) {
-            setError(`Failed to update ${field}: ${err.message}`);
+            setError(`Failed to update ${localStateFieldKey}: ${err.message}`);
+            // Optional: Revert local state if API call fails
+            // setProfileData(prev => ({ ...prev, [localStateFieldKey]: currentUser[localStateFieldKey] || ( (localStateFieldKey === 'economic_stance' || localStateFieldKey === 'social_stance') ? 4 : '' ) }));
         }
     };
 
@@ -197,10 +219,10 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
             alert("Please select a party and a home state to continue.");
             return;
         }
-        onSetupComplete(); // This will trigger a reload and use the updated currentUser from App.js
+        onSetupComplete();
     };
 
-    return(
+    return (
         <div className="max-w-2xl mx-auto mt-10 md:mt-20 p-6 bg-gray-800 rounded-lg space-y-6 shadow-xl">
             <h2 className="text-2xl font-bold text-center text-blue-300">Create Your Political Persona</h2>
             {error && <p className="bg-red-500/20 text-red-300 p-3 rounded text-sm">{error}</p>}
@@ -208,7 +230,7 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
                 <div>
                     <label className="block mb-1 text-sm font-bold text-gray-300">Political Party</label>
                     <select 
-                        value={profileData.party || ''} 
+                        value={profileData.party} 
                         onChange={(e) => handleUpdate('party', e.target.value)} 
                         className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500"
                     >
@@ -221,8 +243,8 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
                  <div>
                     <label className="block mb-1 text-sm font-bold text-gray-300">Home State</label>
                     <select 
-                        value={profileData.home_state || ''} 
-                        onChange={(e) => handleUpdate('homeState', e.target.value)} 
+                        value={profileData.home_state} 
+                        onChange={(e) => handleUpdate('home_state', e.target.value)} 
                         className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500"
                     >
                         <option value="">Select State</option>
@@ -230,13 +252,12 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
                     </select>
                 </div>
             </div>
-            {/* Stances */}
             <div>
                 <label className="block mb-1 text-sm font-bold text-gray-300">Economic Stance: {getStanceLabel(profileData.economic_stance)}</label>
                 <input 
                     type="range" min="1" max="7" 
                     value={profileData.economic_stance} 
-                    onChange={e => handleUpdate('economicStance', e.target.value)} 
+                    onChange={e => handleUpdate('economic_stance', e.target.value)} 
                     className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
             </div>
@@ -245,12 +266,11 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
                 <input 
                     type="range" min="1" max="7" 
                     value={profileData.social_stance} 
-                    onChange={e => handleUpdate('socialStance', e.target.value)} 
+                    onChange={e => handleUpdate('social_stance', e.target.value)} 
                     className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
             </div>
 
-            {/* State Alignment Section - RESTORED */}
             {profileData.home_state && (
                 <div className="bg-gray-700/50 p-4 rounded-lg mt-4">
                     <h4 className="text-md font-semibold text-gray-200 mb-2">Alignment with {profileData.home_state}:</h4>
@@ -261,18 +281,15 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
                     </div>
                 </div>
             )}
-
-            {/* Bio Section - Optional for profile setup, can be enhanced in full profile page */}
             <div>
                 <label className="block mb-1 text-sm font-bold text-gray-300">Bio (Optional)</label>
                 <textarea
-                    value={profileData.bio || ''}
+                    value={profileData.bio}
                     onChange={(e) => handleUpdate('bio', e.target.value)}
                     placeholder="A brief political bio..."
                     className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 h-24 focus:border-blue-500 focus:ring-blue-500"
                 />
             </div>
-
             <button 
                 onClick={finishSetup} 
                 disabled={!profileData.party || !profileData.home_state} 
