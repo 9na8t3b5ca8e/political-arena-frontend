@@ -192,10 +192,19 @@ export default function StatePage({ currentUser, setCurrentUser }) {
         {stateDetails.active_elections?.length > 0 ? (
           <div className="space-y-4">
             {stateDetails.active_elections.map(election => {
-                const isUserFiledInThisElection = selectedElection?.candidates?.some(c => c.user_id === currentUser.id && c.election_id === election.id) ||
-                                                 stateDetails.active_elections
-                                                    .find(e => e.id === election.id)
-                                                    ?.candidates?.some(c => c.user_id === currentUser.id); // Check initial load too
+                // Check if current user is a candidate in this specific election
+                // This check needs to access the candidate list for *this* election (election.id)
+                // The backend for /api/states/:stateName might need to be enhanced to return candidates for each election,
+                // or we rely on the selectedElection for this info if it matches.
+                // For now, this check might be incomplete if selectedElection is not this election.
+                let isUserFiledInThisElection = false;
+                if (selectedElection && selectedElection.id === election.id) {
+                    isUserFiledInThisElection = selectedElection.candidates?.some(c => c.user_id === currentUser.id);
+                } else {
+                    // Fallback: A light check if basic election list from /api/states might include a hint (less reliable)
+                    // This part may need enhancement on backend or more complex state management if we don't want to fetch full details for all elections.
+                }
+
 
                 return (
                     <div key={election.id} className="bg-gray-700/70 p-4 rounded-md shadow">
@@ -231,7 +240,8 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                                     {selectedElection.candidates?.map(c => (
                                         <li key={c.user_id} className="flex justify-between items-center">
                                             <span>
-                                                <Link to={`/profile/${c.user_id}`} className="hover:text-blue-400">{c.first_name} {c.last_name}</Link> ({c.party})
+                                                <Link to={`/profile/${c.user_id}`} className="hover:text-blue-400 font-medium">{c.first_name} {c.last_name}</Link>
+                                                <span className="text-gray-400"> ({c.party})</span>
                                             </span>
                                             {currentUser.id !== c.user_id && selectedElection.status === 'campaign_active' && (
                                                 <button onClick={() => handleAttackAd(c.user_id)} className="text-xs bg-red-500/50 px-2 py-0.5 rounded hover:bg-red-500/80"><Target size={12} className="inline mr-1"/>Attack</button>
