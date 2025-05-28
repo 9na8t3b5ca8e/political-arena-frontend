@@ -1,6 +1,6 @@
 // frontend/src/pages/ProfilePage.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { apiCall } from '../api';
 import { stanceScale, allStates, stateData as allStateData } from '../state-data';
 import { Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, Hash, Copy, Check } from 'lucide-react';
@@ -24,15 +24,9 @@ const calculateStateAlignment = (playerEconomic, playerSocial, stateName) => {
 };
 
 
-export default function ProfilePage() {
-    const { userId: paramsUserId } = useParams(); // userId from URL params
+export default function ProfilePage({ currentUser, setCurrentUser }) {
+    const { userId: paramsUserId } = useParams();
     const navigate = useNavigate();
-
-    // Directly access currentUser from localStorage or a context for initial load
-    // This part assumes you have a way to get the current user's info synchronously
-    // For this example, we'll proceed assuming it will be fetched.
-    // In a real app, a global context (like React Context) is better for managing currentUser.
-    const [currentUser, setCurrentUser] = useState(null); // Local state for the current user
 
     const [profileData, setProfileData] = useState(null);
     const [isOwnProfile, setIsOwnProfile] = useState(false);
@@ -48,59 +42,45 @@ export default function ProfilePage() {
         setLoading(true);
         setError('');
         try {
-            // First, get the logged-in user's data to determine who "we" are.
+            // The /auth/profile endpoint is the source of truth for the logged-in user.
             const loggedInUser = await apiCall('/auth/profile');
-            setCurrentUser(loggedInUser);
-
+            
+            // Determine which profile to load based on URL params
             const targetUserId = paramsUserId || loggedInUser.id;
             const viewingOwnProfile = targetUserId === loggedInUser.id;
             setIsOwnProfile(viewingOwnProfile);
-
+            
+            // If we're viewing our own profile, we already have the data. Otherwise, fetch it.
             const data = viewingOwnProfile ? loggedInUser : await apiCall(`/profiles/${targetUserId}`);
             setProfileData(data);
             
+            // If it's our own profile, update the global state and set fields for editing
             if (viewingOwnProfile) {
+                setCurrentUser(data);
                 setEditableFields({
-                    firstName: data.first_name || '',
-                    lastName: data.last_name || '',
-                    party: data.party || '',
-                    home_state: data.home_state || '',
-                    economic_stance: data.economic_stance || 4,
-                    social_stance: data.social_stance || 4,
-                    bio: data.bio || '',
-                    gender: data.gender || '',
-                    race: data.race || '',
-                    religion: data.religion || '',
+                    firstName: data.first_name || '', lastName: data.last_name || '',
+                    party: data.party || '', home_state: data.home_state || '',
+                    economic_stance: data.economic_stance || 4, social_stance: data.social_stance || 4,
+                    bio: data.bio || '', gender: data.gender || '',
+                    race: data.race || '', religion: data.religion || '',
                     age: data.age || '',
                 });
             }
-
-            if (data.home_state && data.economic_stance !== undefined && data.social_stance !== undefined) {
+            
+            if (data.home_state) {
                 setAlignment(calculateStateAlignment(data.economic_stance, data.social_stance, data.home_state));
             }
 
         } catch (err) {
-            if (err.message.includes('token')) {
-                navigate('/login'); // Or wherever your login page is
-            }
             setError(`Failed to load profile: ${err.message}`);
-            setProfileData(null);
         } finally {
             setLoading(false);
         }
-    }, [paramsUserId, navigate]);
+    }, [paramsUserId, setCurrentUser]);
 
     useEffect(() => {
         loadProfile();
     }, [loadProfile]);
-    
-    useEffect(() => {
-        const currentFields = editMode ? editableFields : profileData;
-        if (currentFields?.home_state && currentFields?.economic_stance !== undefined && currentFields?.social_stance !== undefined) {
-             setAlignment(calculateStateAlignment(currentFields.economic_stance, currentFields.social_stance, currentFields.home_state));
-        }
-    }, [editMode, editableFields, profileData]);
-
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -119,21 +99,15 @@ export default function ProfilePage() {
         }
         try {
             const payload = {
-                firstName: editableFields.firstName,
-                lastName: editableFields.lastName,
-                party: editableFields.party,
-                homeState: editableFields.home_state,
-                economicStance: parseInt(editableFields.economic_stance, 10),
-                socialStance: parseInt(editableFields.social_stance, 10),
-                bio: editableFields.bio,
-                gender: editableFields.gender,
-                race: editableFields.race,
-                religion: editableFields.religion,
-                age: editableFields.age ? parseInt(editableFields.age, 10) : null,
+                firstName: editableFields.firstName, lastName: editableFields.lastName,
+                party: editableFields.party, homeState: editableFields.home_state,
+                economicStance: parseInt(editableFields.economic_stance, 10), socialStance: parseInt(editableFields.social_stance, 10),
+                bio: editableFields.bio, gender: editableFields.gender, race: editableFields.race,
+                religion: editableFields.religion, age: editableFields.age ? parseInt(editableFields.age, 10) : null,
             };
-            const response = await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) });
-            setProfileData(response.updatedProfile);
-            setCurrentUser(response.updatedProfile);
+            const { updatedProfile } = await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) });
+            setProfileData(updatedProfile);
+            setCurrentUser(updatedProfile);
             setEditMode(false);
         } catch (err) {
             setError(`Failed to save changes: ${err.message}`);
@@ -144,10 +118,11 @@ export default function ProfilePage() {
         const link = `${window.location.origin}/profile/${profileData.id}`;
         navigator.clipboard.writeText(link).then(() => {
             setJustCopied(true);
-            setTimeout(() => setJustCopied(false), 2000); // Reset after 2 seconds
+            setTimeout(() => setJustCopied(false), 2000);
         });
     };
-
+    
+    // ... (renderGubernatorialHistory function remains the same) ...
     const renderGubernatorialHistory = (history) => {
         if (!history || typeof history !== 'object' || Object.keys(history).length === 0) {
             return <p className="text-sm text-gray-500">No gubernatorial history.</p>;
@@ -168,26 +143,20 @@ export default function ProfilePage() {
         );
     };
 
-
     if (loading) return <div className="text-center py-10 text-gray-400">Loading profile...</div>;
-    if (error && !profileData) return <div className="bg-red-500/20 text-red-400 p-4 rounded-lg">{error}</div>;
+    if (error) return <div className="bg-red-500/20 text-red-400 p-4 rounded-lg">{error}</div>;
     if (!profileData) return <div className="text-center py-10 text-gray-400">Profile not found.</div>;
 
     return (
         <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-2xl max-w-4xl mx-auto">
             {error && <p className="bg-red-500/20 text-red-300 p-3 rounded text-sm mb-4">{error}</p>}
             
-            {/* UPDATED: Added Profile Link section */}
+            {/* NEW: Shareable Profile Link */}
             {isOwnProfile && (
                 <div className="mb-4 bg-gray-900/50 p-3 rounded-lg">
                     <label className="text-xs text-gray-400">Your Shareable Profile Link</label>
                     <div className="flex items-center gap-2 mt-1">
-                        <input
-                            type="text"
-                            readOnly
-                            value={`${window.location.origin}/profile/${profileData.id}`}
-                            className="w-full bg-gray-700 text-gray-300 p-1 rounded-md text-sm border-gray-600"
-                        />
+                        <input type="text" readOnly value={`${window.location.origin}/profile/${profileData.id}`} className="w-full bg-gray-700 text-gray-300 p-1 rounded-md text-sm border-gray-600"/>
                         <button onClick={copyProfileLink} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm flex items-center shrink-0">
                             {justCopied ? <Check size={16} className="mr-1.5"/> : <Copy size={16} className="mr-1.5"/>}
                             {justCopied ? 'Copied!' : 'Copy'}
@@ -201,32 +170,29 @@ export default function ProfilePage() {
                     {profileData.first_name} {profileData.last_name}
                     <span className="text-lg text-gray-400 ml-2">(@{profileData.username})</span>
                 </h2>
-                {/* UPDATED: Corrected logic for edit/save buttons */}
+                
+                {/* UPDATED: Simplified display logic for Edit/Save buttons */}
                 {isOwnProfile && (
                     <div>
                         {editMode ? (
                             <div className="flex gap-2">
-                                <button onClick={handleSaveChanges} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm flex items-center">
-                                    <Save size={16} className="mr-2"/> Save Changes
-                                </button>
-                                <button onClick={() => { setEditMode(false); setError(''); }} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">
-                                    Cancel
-                                </button>
+                                <button onClick={handleSaveChanges} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Save size={16} className="mr-2"/> Save</button>
+                                <button onClick={() => setEditMode(false)} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">Cancel</button>
                             </div>
                         ) : (
-                            <button onClick={() => setEditMode(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm flex items-center">
-                                <Edit3 size={16} className="mr-2"/> Edit Profile
-                            </button>
+                            <button onClick={() => setEditMode(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Edit3 size={16} className="mr-2"/> Edit Profile</button>
                         )}
                     </div>
                 )}
             </div>
 
+            {/* The rest of the profile page grid remains largely the same... */}
             {/* Main Profile Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Left Column: Basic Info & Stats */}
                 <div className="md:col-span-1 space-y-6">
-                     <InfoCard title="Personal Information" icon={<User size={18}/>}>
+                    {/* Personal Info */}
+                    <InfoCard title="Personal Information" icon={<User size={18}/>}>
                         {isOwnProfile && editMode ? (
                             <>
                                 <EditableField label="First Name" name="firstName" value={editableFields.firstName} onChange={handleInputChange} />
@@ -255,6 +221,7 @@ export default function ProfilePage() {
                         )}
                     </InfoCard>
 
+                    {/* Political Stats */}
                     <InfoCard title="Political Stats" icon={<TrendingUp size={18}/>}>
                         <ReadOnlyField label="Approval Rating" value={`${profileData.approval_rating}%`} />
                         <ReadOnlyField label="Campaign Funds" value={`$${profileData.campaign_funds?.toLocaleString()}`} icon={<DollarSign size={14}/>}/>
@@ -267,7 +234,8 @@ export default function ProfilePage() {
 
                 {/* Right Column: Political Identity, Bio, History */}
                 <div className="md:col-span-2 space-y-6">
-                     <InfoCard title="Political Identity" icon={<Shield size={18}/>}>
+                     {/* Political Identity */}
+                    <InfoCard title="Political Identity" icon={<Shield size={18}/>}>
                         {isOwnProfile && editMode ? (
                             <>
                                 <label className="block text-sm font-medium text-gray-300 mb-1">Party</label>
@@ -296,16 +264,17 @@ export default function ProfilePage() {
                                 <ReadOnlyField label="Social Stance" value={getStanceLabel(profileData.social_stance)} />
                             </>
                         )}
-                        { (profileData.home_state) && (
+                        { ( (isOwnProfile && editMode && editableFields.home_state) || (!editMode && profileData.home_state) ) && (
                             <div className="bg-gray-700/50 p-3 rounded-md mt-3">
-                                <h4 className="text-xs font-semibold text-gray-200 mb-1">Alignment with {editMode ? editableFields.home_state : profileData.home_state}:</h4>
+                                <h4 className="text-xs font-semibold text-gray-200 mb-1">Alignment with {isOwnProfile && editMode ? editableFields.home_state : profileData.home_state}:</h4>
                                 <p className="text-xs text-gray-300">Economic Match: <span className="font-bold text-gray-100">{alignment.economicMatch}%</span></p>
                                 <p className="text-xs text-gray-300">Social Match: <span className="font-bold text-gray-100">{alignment.socialMatch}%</span></p>
                                 <p className="text-xs text-gray-200 mt-0.5">Overall: <span className="font-bold text-blue-300">{alignment.overallAlignment}%</span></p>
                             </div>
                         )}
                     </InfoCard>
-
+                    
+                    {/* Bio */}
                     <InfoCard title="Biography" icon={<Info size={18}/>}>
                         {isOwnProfile && editMode ? (
                             <textarea name="bio" value={editableFields.bio} onChange={handleInputChange} placeholder="Your political background, goals, and vision..." className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 h-28 text-sm"></textarea>
@@ -314,7 +283,8 @@ export default function ProfilePage() {
                         )}
                     </InfoCard>
 
-                     <InfoCard title="Political Career" icon={<Award size={18}/>}>
+                    {/* Election History */}
+                    <InfoCard title="Political Career" icon={<Award size={18}/>}>
                          <ReadOnlyField label="Current Office" value={profileData.current_office || 'Citizen'} />
                          <ReadOnlyField label="Elections Won" value={profileData.elections_won || 0} />
                          <ReadOnlyField label="Elections Lost" value={profileData.elections_lost || 0} />
