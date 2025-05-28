@@ -84,8 +84,8 @@ function App() {
                   <Route path="/" element={<HomePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
                   <Route path="/map" element={<MapPage />} />
                   <Route path="/state/:stateName" element={<StatePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
-                  <Route path="/profile" element={<ProfilePage />} /> {/* General profile link */}
-                  <Route path="/profile/:userId" element={<ProfilePage />} /> {/* Specific user profile link */}
+                  <Route path="/profile" element={<ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
+                  <Route path="/profile/:userId" element={<ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </main>
