@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiCall } from '../api';
 import { stanceScale, allStates, stateData as allStateData } from '../state-data';
-import { Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, Hash, Copy, Check, AlertTriangle, Lock } from 'lucide-react';
+import { Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, Copy, Check, AlertTriangle, Lock, Settings as SettingsIcon } from 'lucide-react';
+import PasswordChangeModal from '../components/PasswordChangeModal';
 
 // Helper to get stance label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value, 10))?.label || 'Moderate';
@@ -52,6 +53,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     const [bioCharCount, setBioCharCount] = useState(0);
     const [isNameChangeCooldownActive, setIsNameChangeCooldownActive] = useState(false);
     const [nextNameChangeDate, setNextNameChangeDate] = useState(null);
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
 
     const clearMessages = () => {
         setError('');
@@ -63,7 +65,8 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             setEditableFields({
                 firstName: data.first_name || '', lastName: data.last_name || '',
                 party: data.party || '', home_state: data.home_state || '',
-                economic_stance: data.economic_stance || 4, social_stance: data.social_stance || 4,
+                economic_stance: parseInt(data.economic_stance, 10) || 4,
+                social_stance: parseInt(data.social_stance, 10) || 4,
                 bio: data.bio || '', gender: data.gender || '',
                 race: data.race || '', religion: data.religion || '',
                 age: data.age || '',
@@ -78,7 +81,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         clearMessages();
 
         if (!currentUser) {
-            navigate('/'); // Should be handled by App.js routing, but as a fallback
+            navigate('/'); 
             return;
         }
 
@@ -90,7 +93,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
 
             const data = viewingOwnProfile ? currentUser : await apiCall(`/profiles/${targetUserId}`);
             setProfileData(data);
-            // Initialize editable fields with fetched/current data, this will be used when toggling editMode
             initializeEditableFields(data); 
             
             if (data.home_state && data.economic_stance !== undefined && data.social_stance !== undefined) {
@@ -99,11 +101,12 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                  setAlignment({ economicMatch: 'N/A', socialMatch: 'N/A', overallAlignment: 'N/A' });
             }
 
-            // Check for name change cooldown
             if (viewingOwnProfile && data.last_name_change_date) {
                 const lastChange = new Date(data.last_name_change_date);
-                const cooldownEnds = new Date(lastChange.setDate(lastChange.getDate() + NAME_CHANGE_COOLDOWN_DAYS));
+                let cooldownEnds = new Date(lastChange.valueOf()); 
+                cooldownEnds.setDate(cooldownEnds.getDate() + NAME_CHANGE_COOLDOWN_DAYS);
                 const today = new Date();
+
                 if (today < cooldownEnds) {
                     setIsNameChangeCooldownActive(true);
                     setNextNameChangeDate(cooldownEnds.toLocaleDateString());
@@ -115,8 +118,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                  setIsNameChangeCooldownActive(false);
                  setNextNameChangeDate(null);
             }
-
-
         } catch (err) {
             setError(`Failed to load profile: ${err.message}`);
             setProfileData(null); 
@@ -126,23 +127,17 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     }, [paramsUserId, currentUser, navigate, initializeEditableFields]);
 
     useEffect(() => {
-        if (currentUser) {
+        if (currentUser) { 
             loadProfile();
         }
     }, [currentUser, paramsUserId, loadProfile]);
 
      useEffect(() => {
-        if (editMode && isOwnProfile && profileData) {
-            // When entering edit mode, ensure editableFields is based on the latest profileData
-            initializeEditableFields(profileData);
+        const currentFieldsSource = editMode ? editableFields : profileData;
+        if (currentFieldsSource && currentFieldsSource.home_state && currentFieldsSource.economic_stance !== undefined && currentFieldsSource.social_stance !== undefined) {
+            setAlignment(calculateStateAlignment(currentFieldsSource.economic_stance, currentFieldsSource.social_stance, currentFieldsSource.home_state));
         }
-        // Update alignment when editable fields change (stances/home_state) in edit mode
-        if (editMode && isOwnProfile && editableFields.home_state && editableFields.economic_stance !== undefined && editableFields.social_stance !== undefined) {
-            setAlignment(calculateStateAlignment(editableFields.economic_stance, editableFields.social_stance, editableFields.home_state));
-        } else if (!editMode && profileData && profileData.home_state) { // Also update alignment when viewing and profileData is set
-             setAlignment(calculateStateAlignment(profileData.economic_stance, profileData.social_stance, profileData.home_state));
-        }
-    }, [editMode, isOwnProfile, profileData, initializeEditableFields, editableFields.economic_stance, editableFields.social_stance, editableFields.home_state]);
+    }, [editMode, profileData, editableFields.economic_stance, editableFields.social_stance, editableFields.home_state]);
 
 
     const handleInputChange = (e) => {
@@ -191,11 +186,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
 
         try {
             const payload = { 
-                // Only send names if they have actually changed and cooldown is not active
-                ...(nameChangeAttempted && !isNameChangeCooldownActive && { 
-                    firstName: editableFields.firstName,
-                    lastName: editableFields.lastName,
-                }),
                 economicStance: parseInt(editableFields.economic_stance, 10),
                 socialStance: parseInt(editableFields.social_stance, 10),
                 bio: editableFields.bio,
@@ -204,16 +194,22 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 religion: editableFields.religion,
                 age: editableFields.age ? parseInt(editableFields.age, 10) : null,
             };
+             // Only include name fields if they have actually changed and cooldown is not active
+            if (nameChangeAttempted && !isNameChangeCooldownActive) {
+                payload.firstName = editableFields.firstName;
+                payload.lastName = editableFields.lastName;
+            }
             
             const response = await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) });
-            setProfileData(response.updatedProfile); // Update local profileData
-            if (setCurrentUser) setCurrentUser(response.updatedProfile); // Update global state
+            setProfileData(response.updatedProfile); 
+            if (setCurrentUser) setCurrentUser(response.updatedProfile); 
             setEditMode(false);
             setSuccess(response.message || 'Profile updated successfully!');
-             // Re-check cooldown after successful save, especially if name was changed
+            
             if (response.updatedProfile.last_name_change_date) {
                 const lastChange = new Date(response.updatedProfile.last_name_change_date);
-                const cooldownEnds = new Date(lastChange.setDate(lastChange.getDate() + NAME_CHANGE_COOLDOWN_DAYS));
+                let cooldownEnds = new Date(lastChange.valueOf());
+                cooldownEnds.setDate(cooldownEnds.getDate() + NAME_CHANGE_COOLDOWN_DAYS);
                 const today = new Date();
                 if (today < cooldownEnds) {
                     setIsNameChangeCooldownActive(true);
@@ -223,8 +219,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                     setNextNameChangeDate(null);
                 }
             }
-
-
         } catch (err) {
             setError(`Failed to save changes: ${err.message}`);
         }
@@ -252,107 +246,119 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
 
 
     return (
-        <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-2xl max-w-4xl mx-auto">
-            {error && <p className="bg-red-500/20 text-red-300 p-3 rounded text-sm mb-4 flex items-center"><AlertTriangle size={16} className="mr-2"/>{error}</p>}
-            {success && <p className="bg-green-500/20 text-green-300 p-3 rounded text-sm mb-4 flex items-center"><Check size={16} className="mr-2"/>{success}</p>}
-            
-            {isOwnProfile && ( <div className="mb-4 bg-gray-900/50 p-3 rounded-lg"> <label className="text-xs text-gray-400">Your Shareable Profile Link</label> <div className="flex items-center gap-2 mt-1"> <input type="text" readOnly value={`${window.location.origin}/profile/${profileData.id}`} className="w-full bg-gray-700 text-gray-300 p-1 rounded-md text-sm border-gray-600"/> <button onClick={copyProfileLink} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm flex items-center shrink-0"> {justCopied ? <Check size={16} className="mr-1.5"/> : <Copy size={16} className="mr-1.5"/>} {justCopied ? 'Copied!' : 'Copy'} </button> </div> </div> )}
-             {isOwnProfile && isNameChangeCooldownActive && editMode && (
-                <div className="mb-4 bg-yellow-600/20 text-yellow-300 p-3 rounded text-sm flex items-center">
-                    <Lock size={16} className="mr-2" />
-                    Name fields are locked. You can change your name again on {nextNameChangeDate}.
+        <>
+            <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-2xl max-w-4xl mx-auto">
+                {error && <p className="bg-red-500/20 text-red-300 p-3 rounded text-sm mb-4 flex items-center"><AlertTriangle size={16} className="mr-2"/>{error}</p>}
+                {success && <p className="bg-green-500/20 text-green-300 p-3 rounded text-sm mb-4 flex items-center"><Check size={16} className="mr-2"/>{success}</p>}
+                
+                {isOwnProfile && ( <div className="mb-4 bg-gray-900/50 p-3 rounded-lg"> <label className="text-xs text-gray-400">Your Shareable Profile Link</label> <div className="flex items-center gap-2 mt-1"> <input type="text" readOnly value={`${window.location.origin}/profile/${profileData.id}`} className="w-full bg-gray-700 text-gray-300 p-1 rounded-md text-sm border-gray-600"/> <button onClick={copyProfileLink} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm flex items-center shrink-0"> {justCopied ? <Check size={16} className="mr-1.5"/> : <Copy size={16} className="mr-1.5"/>} {justCopied ? 'Copied!' : 'Copy'} </button> </div> </div> )}
+                {isOwnProfile && isNameChangeCooldownActive && editMode && ( <div className="mb-4 bg-yellow-600/20 text-yellow-300 p-3 rounded text-sm flex items-center"> <Lock size={16} className="mr-2" /> Name fields are locked. You can change your name again on {nextNameChangeDate}. </div> )}
+
+                <div className="flex justify-between items-start mb-6"> 
+                    <h2 className="text-3xl font-bold text-blue-300"> {profileData.first_name} {profileData.last_name} <span className="text-lg text-gray-400 ml-2">(@{profileData.username})</span> </h2> 
+                    {isOwnProfile && ( 
+                        <div className="flex items-center gap-2"> 
+                            {editMode ? ( 
+                                <> <button onClick={handleSaveChanges} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Save size={16} className="mr-2"/> Save</button> 
+                                <button onClick={() => { setEditMode(false); clearMessages(); initializeEditableFields(profileData); }} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">Cancel</button> </> 
+                            ) : ( 
+                                <>
+                                <button onClick={() => { initializeEditableFields(profileData); setEditMode(true); clearMessages();}} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Edit3 size={16} className="mr-2"/> Edit Profile</button> 
+                                <button onClick={() => { clearMessages(); setShowPasswordModal(true);}} className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><SettingsIcon size={16} className="mr-2"/> Settings</button>
+                                </>
+                            )} 
+                        </div> 
+                    )} 
                 </div>
-            )}
 
-
-            <div className="flex justify-between items-start mb-6"> <h2 className="text-3xl font-bold text-blue-300"> {profileData.first_name} {profileData.last_name} <span className="text-lg text-gray-400 ml-2">(@{profileData.username})</span> </h2> {isOwnProfile && ( <div> {editMode ? ( <div className="flex gap-2"> <button onClick={handleSaveChanges} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Save size={16} className="mr-2"/> Save</button> <button onClick={() => { setEditMode(false); clearMessages(); initializeEditableFields(profileData); }} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">Cancel</button> </div> ) : ( <button onClick={() => { initializeEditableFields(profileData); setEditMode(true); clearMessages();}} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Edit3 size={16} className="mr-2"/> Edit Profile</button> )} </div> )} </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-1 space-y-6">
-                    <InfoCard title="Personal Information" icon={<User size={18}/>}>
-                        {isOwnProfile && editMode ? (
-                            <>
-                                <EditableField label="First Name" name="firstName" value={editableFields.firstName || ''} onChange={handleInputChange} disabled={isNameChangeCooldownActive} />
-                                <EditableField label="Last Name" name="lastName" value={editableFields.lastName || ''} onChange={handleInputChange} disabled={isNameChangeCooldownActive} />
-                                <EditableDropdownField label="Age" name="age" value={editableFields.age || ''} onChange={handleInputChange} options={ageOptions.map(age => ({value: age, label: age.toString()}))} placeholder="Select Age"/>
-                                <EditableDropdownField label="Gender" name="gender" value={editableFields.gender || ''} onChange={handleInputChange} options={genderOptions.map(g => ({value: g, label: g}))} placeholder="Select Gender"/>
-                                <EditableDropdownField label="Race/Ethnicity" name="race" value={editableFields.race || ''} onChange={handleInputChange} options={raceOptions.map(r => ({value: r, label: r}))} placeholder="Select Race/Ethnicity"/>
-                                <EditableDropdownField label="Religion" name="religion" value={editableFields.religion || ''} onChange={handleInputChange} options={religionOptions.map(r => ({value: r, label: r}))} placeholder="Select Religion"/>
-                            </>
-                        ) : (
-                            <>
-                                <ReadOnlyField label="Name" value={`${profileData.first_name} ${profileData.last_name}`} />
-                                {profileData.age && <ReadOnlyField label="Age" value={profileData.age} />}
-                                {profileData.gender && <ReadOnlyField label="Gender" value={profileData.gender} />}
-                                {profileData.race && <ReadOnlyField label="Race/Ethnicity" value={profileData.race} />}
-                                {profileData.religion && <ReadOnlyField label="Religion" value={profileData.religion} />}
-                            </>
-                        )}
-                        {isOwnProfile && <ReadOnlyField label="Email" value={profileData.email} icon={<Mail size={14}/>} />}
-                        <ReadOnlyField label="Username" value={`@${profileData.username}`} icon={<Hash size={14}/>} />
-                    </InfoCard>
-                    <InfoCard title="Political Stats" icon={<TrendingUp size={18}/>}>
-                        <ReadOnlyField label="Approval Rating" value={`${profileData.approval_rating}%`} />
-                        <ReadOnlyField label="Campaign Funds" value={`$${profileData.campaign_funds?.toLocaleString()}`} icon={<DollarSign size={14}/>}/>
-                        <ReadOnlyField label="Political Capital" value={profileData.political_capital} icon={<Briefcase size={14}/>}/>
-                        <ReadOnlyField label="Action Points" value={profileData.action_points} />
-                        <ReadOnlyField label="State Name Recognition" value={`${profileData.state_name_recognition}%`} />
-                        <ReadOnlyField label="Campaign Strength" value={`${profileData.campaign_strength}%`} />
-                    </InfoCard>
-                </div>
-                <div className="md:col-span-2 space-y-6">
-                    <InfoCard title="Political Identity" icon={<Shield size={18}/>}>
-                        <ReadOnlyField label="Party" value={profileData.party || 'N/A'} />
-                        <ReadOnlyField label="Home State" value={profileData.home_state || 'N/A'} icon={<MapPin size={14}/>}/>
-                        
-                        {isOwnProfile && editMode ? (
-                            <>
-                                <div className="mt-3">
-                                    <label className="block text-sm font-medium text-gray-300">Economic Stance: {getStanceLabel(editableFields.economic_stance)} <span className="text-xs text-yellow-400">(Cost: 5 PC)</span></label>
-                                    <input type="range" min="1" max="7" name="economic_stance" value={editableFields.economic_stance} onChange={(e) => handleStanceChange('economic_stance', e.target.value)} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 mb-2"/>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300">Social Stance: {getStanceLabel(editableFields.social_stance)} <span className="text-xs text-yellow-400">(Cost: 5 PC)</span></label>
-                                    <input type="range" min="1" max="7" name="social_stance" value={editableFields.social_stance} onChange={(e) => handleStanceChange('social_stance', e.target.value)} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"/>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <ReadOnlyField label="Economic Stance" value={getStanceLabel(profileData.economic_stance)} />
-                                <ReadOnlyField label="Social Stance" value={getStanceLabel(profileData.social_stance)} />
-                            </>
-                        )}
-                        { profileData.home_state && (profileData.economic_stance !== undefined && profileData.social_stance !== undefined) && (
-                            <div className="bg-gray-700/50 p-3 rounded-md mt-3">
-                                <h4 className="text-xs font-semibold text-gray-200 mb-1">Alignment with {profileData.home_state}:</h4>
-                                <p className="text-xs text-gray-300">Economic Match: <span className="font-bold text-gray-100">{alignment.economicMatch}%</span></p>
-                                <p className="text-xs text-gray-300">Social Match: <span className="font-bold text-gray-100">{alignment.socialMatch}%</span></p>
-                                <p className="text-xs text-gray-200 mt-0.5">Overall: <span className="font-bold text-blue-300">{alignment.overallAlignment}%</span></p>
-                            </div>
-                        )}
-                    </InfoCard>
-                    <InfoCard title="Biography" icon={<Info size={18}/>}>
-                        {isOwnProfile && editMode ? (
-                            <>
-                                <textarea name="bio" value={editableFields.bio || ''} onChange={handleInputChange} placeholder="Your political background, goals, and vision..." className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 h-28 text-sm" maxLength={255}></textarea>
-                                <p className="text-xs text-gray-400 text-right">{bioCharCount}/255</p>
-                            </>
-                        ) : ( <p className="text-sm text-gray-300 whitespace-pre-wrap">{profileData.bio || <span className="text-gray-500">No bio provided.</span>}</p> )}
-                    </InfoCard>
-                    <InfoCard title="Political Career" icon={<Award size={18}/>}>
-                         <ReadOnlyField label="Current Office" value={profileData.current_office || 'Citizen'} />
-                         <ReadOnlyField label="Elections Won" value={profileData.elections_won || 0} />
-                         <ReadOnlyField label="Elections Lost" value={profileData.elections_lost || 0} />
-                         <ReadOnlyField label="Total Votes Received" value={profileData.total_votes_received?.toLocaleString() || 0} />
-                         <div className="mt-3"> <h4 className="text-sm font-semibold text-gray-200 mb-1">Gubernatorial History:</h4> {renderGubernatorialHistory(profileData.gubernatorial_history)} </div>
-                    </InfoCard>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-1 space-y-6">
+                        <InfoCard title="Personal Information" icon={<User size={18}/>}>
+                            {isOwnProfile && editMode ? (
+                                <>
+                                    <EditableField label="First Name" name="firstName" value={editableFields.firstName || ''} onChange={handleInputChange} disabled={isNameChangeCooldownActive} />
+                                    <EditableField label="Last Name" name="lastName" value={editableFields.lastName || ''} onChange={handleInputChange} disabled={isNameChangeCooldownActive} />
+                                    <EditableDropdownField label="Age" name="age" value={editableFields.age || ''} onChange={handleInputChange} options={ageOptions.map(age => ({value: age, label: age.toString()}))} placeholder="Select Age"/>
+                                    <EditableDropdownField label="Gender" name="gender" value={editableFields.gender || ''} onChange={handleInputChange} options={genderOptions.map(g => ({value: g, label: g}))} placeholder="Select Gender"/>
+                                    <EditableDropdownField label="Race/Ethnicity" name="race" value={editableFields.race || ''} onChange={handleInputChange} options={raceOptions.map(r => ({value: r, label: r}))} placeholder="Select Race/Ethnicity"/>
+                                    <EditableDropdownField label="Religion" name="religion" value={editableFields.religion || ''} onChange={handleInputChange} options={religionOptions.map(r => ({value: r, label: r}))} placeholder="Select Religion"/>
+                                </>
+                            ) : (
+                                <>
+                                    <ReadOnlyField label="Name" value={`${profileData.first_name} ${profileData.last_name}`} />
+                                    {profileData.age && <ReadOnlyField label="Age" value={profileData.age} />}
+                                    {profileData.gender && <ReadOnlyField label="Gender" value={profileData.gender} />}
+                                    {profileData.race && <ReadOnlyField label="Race/Ethnicity" value={profileData.race} />}
+                                    {profileData.religion && <ReadOnlyField label="Religion" value={profileData.religion} />}
+                                </>
+                            )}
+                            <ReadOnlyField label="Email" value={`${profileData.email} (Not shown publicly)`} icon={<Mail size={14}/>} /> 
+                            <ReadOnlyField label="Username" value={`@${profileData.username}`} icon={<User size={14}/>} />
+                        </InfoCard>
+                        <InfoCard title="Political Stats" icon={<TrendingUp size={18}/>}>
+                            <ReadOnlyField label="Approval Rating" value={`${profileData.approval_rating}%`} />
+                            <ReadOnlyField label="Campaign Funds" value={`$${profileData.campaign_funds?.toLocaleString()}`} icon={<DollarSign size={14}/>}/>
+                            <ReadOnlyField label="Political Capital" value={profileData.political_capital} icon={<Briefcase size={14}/>}/>
+                            <ReadOnlyField label="Action Points" value={profileData.action_points} />
+                            <ReadOnlyField label="State Name Recognition" value={`${profileData.state_name_recognition}%`} />
+                            <ReadOnlyField label="Campaign Strength" value={`${profileData.campaign_strength}%`} />
+                        </InfoCard>
+                    </div>
+                    <div className="md:col-span-2 space-y-6">
+                        <InfoCard title="Political Identity" icon={<Shield size={18}/>}>
+                            <ReadOnlyField label="Party" value={profileData.party || 'N/A'} />
+                            <ReadOnlyField label="Home State" value={profileData.home_state || 'N/A'} icon={<MapPin size={14}/>}/>
+                            
+                            {isOwnProfile && editMode ? (
+                                <>
+                                    <div className="mt-3">
+                                        <label className="block text-sm font-medium text-gray-300">Economic Stance: {getStanceLabel(editableFields.economic_stance)} <span className="text-xs text-yellow-400">(Cost: 5 PC)</span></label>
+                                        <input type="range" min="1" max="7" name="economic_stance" value={Number(editableFields.economic_stance || 4)} onChange={(e) => handleStanceChange('economic_stance', e.target.value)} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 mb-2"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300">Social Stance: {getStanceLabel(editableFields.social_stance)} <span className="text-xs text-yellow-400">(Cost: 5 PC)</span></label>
+                                        <input type="range" min="1" max="7" name="social_stance" value={Number(editableFields.social_stance || 4)} onChange={(e) => handleStanceChange('social_stance', e.target.value)} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"/>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <ReadOnlyField label="Economic Stance" value={getStanceLabel(profileData.economic_stance)} />
+                                    <ReadOnlyField label="Social Stance" value={getStanceLabel(profileData.social_stance)} />
+                                </>
+                            )}
+                            { profileData.home_state && (profileData.economic_stance !== undefined && profileData.social_stance !== undefined) && ( <div className="bg-gray-700/50 p-3 rounded-md mt-3"> <h4 className="text-xs font-semibold text-gray-200 mb-1">Alignment with {profileData.home_state}:</h4> <p className="text-xs text-gray-300">Economic Match: <span className="font-bold text-gray-100">{alignment.economicMatch}%</span></p> <p className="text-xs text-gray-300">Social Match: <span className="font-bold text-gray-100">{alignment.socialMatch}%</span></p> <p className="text-xs text-gray-200 mt-0.5">Overall: <span className="font-bold text-blue-300">{alignment.overallAlignment}%</span></p> </div> )}
+                        </InfoCard>
+                        <InfoCard title="Biography" icon={<Info size={18}/>}>
+                            {isOwnProfile && editMode ? (
+                                <>
+                                    <textarea name="bio" value={editableFields.bio || ''} onChange={handleInputChange} placeholder="Your political background, goals, and vision..." className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 h-28 text-sm" maxLength={255}></textarea>
+                                    <p className="text-xs text-gray-400 text-right">{bioCharCount}/255</p>
+                                </>
+                            ) : ( <p className="text-sm text-gray-300 whitespace-pre-wrap">{profileData.bio || <span className="text-gray-500">No bio provided.</span>}</p> )}
+                        </InfoCard>
+                        <InfoCard title="Political Career" icon={<Award size={18}/>}>
+                             <ReadOnlyField label="Current Office" value={profileData.current_office || 'Citizen'} />
+                             <ReadOnlyField label="Elections Won" value={profileData.elections_won || 0} />
+                             <ReadOnlyField label="Elections Lost" value={profileData.elections_lost || 0} />
+                             <ReadOnlyField label="Total Votes Received" value={profileData.total_votes_received?.toLocaleString() || 0} />
+                             <div className="mt-3"> <h4 className="text-sm font-semibold text-gray-200 mb-1">Gubernatorial History:</h4> {renderGubernatorialHistory(profileData.gubernatorial_history)} </div>
+                        </InfoCard>
+                    </div>
                 </div>
             </div>
-        </div>
+            {isOwnProfile && showPasswordModal && (
+                <PasswordChangeModal 
+                    isOpen={showPasswordModal} 
+                    onClose={() => { setShowPasswordModal(false); clearMessages(); }}
+                    onSuccess={(message) => { setSuccess(message); setShowPasswordModal(false); }}
+                    onError={(message) => { setError(message); /* Keep modal open for correction by default */}}
+                />
+            )}
+        </>
     );
 }
 
-// Helper Components (InfoCard, ReadOnlyField, EditableField, EditableDropdownField)
+// Helper Components
 const InfoCard = ({ title, icon, children }) => ( <div className="bg-gray-700/50 p-4 rounded-lg shadow-lg"> <h3 className="text-lg font-semibold text-blue-200 mb-3 flex items-center border-b border-gray-600 pb-2"> {icon && React.cloneElement(icon, { className: "mr-2" })} {title} </h3> <div className="space-y-2">{children}</div> </div> );
 const ReadOnlyField = ({ label, value, icon }) => ( <div> <span className="text-xs text-gray-400 block">{label}</span> <p className="text-sm text-gray-200 flex items-center"> {icon && React.cloneElement(icon, { className: "mr-1.5 text-gray-400" })} {value} </p> </div> );
 const EditableField = ({ label, name, value, onChange, type = "text", placeholder, disabled = false }) => ( <div className="mb-2"> <label htmlFor={name} className="block text-xs font-medium text-gray-300 mb-0.5">{label}</label> <input type={type} name={name} id={name} value={value || ''} onChange={onChange} placeholder={placeholder || label} disabled={disabled} className={`w-full p-1.5 bg-gray-600 rounded text-white border border-gray-500 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`} /> </div> );
