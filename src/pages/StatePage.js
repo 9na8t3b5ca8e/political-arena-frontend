@@ -11,11 +11,11 @@ const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(val
 // Helper to get a color class based on stance value for the bar
 const getStanceBarColorClass = (value) => {
     const intValue = parseInt(value, 10);
-    if (intValue <= 2) return 'bg-blue-600'; 
-    if (intValue === 3) return 'bg-blue-400'; 
+    if (intValue <= 2) return 'bg-blue-600';
+    if (intValue === 3) return 'bg-blue-400';
     if (intValue === 4) return 'bg-purple-500';
-    if (intValue === 5) return 'bg-red-400';   
-    if (intValue >= 6) return 'bg-red-600';  
+    if (intValue === 5) return 'bg-red-400';
+    if (intValue >= 6) return 'bg-red-600';
     return 'bg-gray-500';
 };
 
@@ -27,9 +27,10 @@ export default function StatePage({ currentUser, setCurrentUser }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  
+
   const [selectedElection, setSelectedElection] = useState(null);
-  const [pollingData, setPollingData] = useState([]);
+  // UPDATED: Changed pollingData state to handle an object or null
+  const [pollingData, setPollingData] = useState(null);
   const [loadingElectionDetails, setLoadingElectionDetails] = useState(false);
   const [isProcessingAction, setIsProcessingAction] = useState(false); // For filing or withdrawing
 
@@ -37,9 +38,6 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     setLoading(true);
     setError('');
     setSuccessMessage('');
-    // Don't reset selectedElection here, allow it to persist if user is just refreshing state data
-    // setSelectedElection(null); 
-    // setPollingData([]);
     try {
       const data = await apiCall(`/states/${encodeURIComponent(decodedStateName)}`);
       setStateDetails(data);
@@ -52,7 +50,7 @@ export default function StatePage({ currentUser, setCurrentUser }) {
 
   useEffect(() => {
     fetchStateData();
-  }, [fetchStateData]); 
+  }, [fetchStateData]);
 
   const clearMessages = () => {
     setError('');
@@ -73,7 +71,7 @@ export default function StatePage({ currentUser, setCurrentUser }) {
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
         const minutes = Math.floor((diff / 1000 / 60) % 60);
-        
+
         if (days > 0) relativeString = `${days}d ${hours}h ${minutes}m left`;
         else if (hours > 0) relativeString = `${hours}h ${minutes}m left`;
         else if (minutes > 0) relativeString = `${minutes}m left`;
@@ -81,7 +79,7 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     }
 
     const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', timeZoneName: 'short' };
-    const absoluteString = deadline.toLocaleString(undefined, options); 
+    const absoluteString = deadline.toLocaleString(undefined, options);
 
     return { relative: relativeString, absolute: absoluteString, hasPassed };
   };
@@ -89,15 +87,15 @@ export default function StatePage({ currentUser, setCurrentUser }) {
   const handleViewElection = async (electionId) => {
     clearMessages();
     if (selectedElection && selectedElection.id === electionId) {
-        setSelectedElection(null); 
-        setPollingData([]);
+        setSelectedElection(null);
+        setPollingData(null); // UPDATED: Clear polling data when hiding details
         return;
     }
     try {
         setLoadingElectionDetails(true);
         const electionDetailsResult = await apiCall(`/elections/${electionId}`);
         setSelectedElection(electionDetailsResult);
-        setPollingData([]); // Clear old polling data when viewing a new election
+        setPollingData(null); // UPDATED: Clear old polling data when viewing a new election
     } catch (err) { setError(err.message); }
     finally { setLoadingElectionDetails(false); }
   };
@@ -105,13 +103,13 @@ export default function StatePage({ currentUser, setCurrentUser }) {
   const handleViewPolling = async (electionId) => {
       clearMessages();
       try {
-          setLoadingElectionDetails(true); 
+          setLoadingElectionDetails(true);
           const polling = await apiCall(`/elections/${electionId}/polling`);
           setPollingData(polling);
       } catch(err) { setError(err.message); }
       finally { setLoadingElectionDetails(false); }
   };
-  
+
   const handleAttackAd = async (targetUserId) => {
     clearMessages();
     try {
@@ -122,7 +120,7 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     } catch (err) { setError(err.message); }
     finally { setIsProcessingAction(false); }
   };
-  
+
   const handleFileForElection = async (electionId, filingFee) => {
       clearMessages();
       setIsProcessingAction(true);
@@ -136,10 +134,10 @@ export default function StatePage({ currentUser, setCurrentUser }) {
           const res = await apiCall(`/elections/${electionId}/file`, { method: 'POST' });
           setSuccessMessage(res.message);
           setCurrentUser(prev => ({...prev, campaign_funds: res.newCampaignFunds !== undefined ? res.newCampaignFunds : prev.campaign_funds - filingFee})); // Use newCampaignFunds from API
-          
+
           // Refresh data
           await fetchStateData(); // Re-fetch all state data
-          if(selectedElection && selectedElection.id === electionId){ 
+          if(selectedElection && selectedElection.id === electionId){
              const electionDetailsResult = await apiCall(`/elections/${electionId}`);
              setSelectedElection(electionDetailsResult);
           }
@@ -150,7 +148,6 @@ export default function StatePage({ currentUser, setCurrentUser }) {
       }
   };
 
-  // NEW: Handle withdrawal from election
   const handleWithdrawFromElection = async (electionId) => {
     clearMessages();
     if (!window.confirm("Are you sure you want to withdraw from this election? The filing fee will be refunded if filing is still open.")) {
@@ -164,16 +161,11 @@ export default function StatePage({ currentUser, setCurrentUser }) {
             setCurrentUser(prev => ({ ...prev, campaign_funds: res.newCampaignFunds }));
         }
         // Refresh data
-        await fetchStateData(); // Re-fetch all state data
-        if(selectedElection && selectedElection.id === electionId){ 
-            // If the currently selected election was the one withdrawn from, refresh its details too
-            // or potentially clear it if the user is no longer a candidate.
-            // For simplicity, re-fetching is fine.
+        await fetchStateData();
+        if(selectedElection && selectedElection.id === electionId){
            const electionDetailsResult = await apiCall(`/elections/${electionId}`);
            setSelectedElection(electionDetailsResult);
         } else if (selectedElection) {
-            // If a different election is selected, ensure its candidate list is up-to-date
-            // This might not be strictly necessary if withdrawal doesn't affect other elections' views
             const electionDetailsResult = await apiCall(`/elections/${selectedElection.id}`);
             setSelectedElection(electionDetailsResult);
         }
@@ -187,8 +179,7 @@ export default function StatePage({ currentUser, setCurrentUser }) {
 
 
   if (loading && !stateDetails) return <div className="text-center py-10 text-gray-400">Loading state data for {decodedStateName}...</div>;
-  // Keep showing existing stateDetails even if there's an error during a refresh
-  if (error && !stateDetails && !loading) return <div className="bg-red-500/20 text-red-400 p-4 rounded-lg">{error}</div>; 
+  if (error && !stateDetails && !loading) return <div className="bg-red-500/20 text-red-400 p-4 rounded-lg">{error}</div>;
   if (!stateDetails && !loading) return <div className="text-center py-10 text-gray-400">No data currently available for {decodedStateName}.</div>;
 
   return (
@@ -215,8 +206,8 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                           </span>
                       </div>
                       <div className="w-full bg-gray-700 rounded-full h-3" title={`Score: ${stateDetails.ideology.economic}`}>
-                          <div 
-                              className={`${getStanceBarColorClass(stateDetails.ideology.economic)} h-3 rounded-full transition-all duration-500 ease-out`} 
+                          <div
+                              className={`${getStanceBarColorClass(stateDetails.ideology.economic)} h-3 rounded-full transition-all duration-500 ease-out`}
                               style={{ width: `${((parseInt(stateDetails.ideology.economic,10) - 1) / 6) * 100}%` }}
                           ></div>
                       </div>
@@ -229,8 +220,8 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                           </span>
                       </div>
                       <div className="w-full bg-gray-700 rounded-full h-3" title={`Score: ${stateDetails.ideology.social}`}>
-                          <div 
-                              className={`${getStanceBarColorClass(stateDetails.ideology.social)} h-3 rounded-full transition-all duration-500 ease-out`} 
+                          <div
+                              className={`${getStanceBarColorClass(stateDetails.ideology.social)} h-3 rounded-full transition-all duration-500 ease-out`}
                               style={{ width: `${((parseInt(stateDetails.ideology.social,10) - 1) / 6) * 100}%` }}
                           ></div>
                       </div>
@@ -258,22 +249,19 @@ export default function StatePage({ currentUser, setCurrentUser }) {
               ) : <p className="text-gray-500">No registered politicians from this state currently active.</p>}
             </div>
           </div>
-          
+
           {/* Active Elections Section */}
           <div className="bg-gray-800 p-4 rounded-lg shadow-xl mt-6">
             <h3 className="text-xl font-semibold mb-3 text-blue-200 border-b border-gray-700 pb-2">Active Elections in {decodedStateName} ({stateDetails.active_elections?.length || 0})</h3>
             {stateDetails.active_elections?.length > 0 ? (
               <div className="space-y-4">
                 {stateDetails.active_elections.map(election => {
-                    // Determine if current user is filed in THIS specific election
-                    // Check against the candidates list in the main stateDetails.active_elections first
                     let isUserFiledInThisElection = election.candidates?.some(c => c.user_id === currentUser.id);
-                    
-                    // If viewing details for this election, selectedElection will be populated, use its candidate list as it might be more up-to-date
+
                     if (selectedElection && selectedElection.id === election.id) {
                          isUserFiledInThisElection = selectedElection.candidates?.some(c => c.user_id === currentUser.id);
                     }
-                    
+
                     const timeInfo = formatTime(election.filing_deadline);
                     const canFile = currentUser.home_state === decodedStateName && election.status === 'accepting_candidates' && !timeInfo.hasPassed;
                     const canWithdraw = isUserFiledInThisElection && election.status === 'accepting_candidates' && !timeInfo.hasPassed;
@@ -282,7 +270,7 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                         <div key={election.id} className="bg-gray-700/70 p-4 rounded-md shadow">
                             <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-2">
                                 <h4 className="text-lg font-medium text-gray-100">{election.office} <span className={`text-xs px-2 py-0.5 rounded-full ml-2 ${election.type === 'primary' ? 'bg-yellow-500/30 text-yellow-300' : 'bg-green-500/30 text-green-300'}`}>{election.type}</span></h4>
-                                <span className="text-xs mt-1 sm:mt-0 px-2 py-1 bg-gray-600 text-gray-300 rounded-full">{election.status.replace('_', ' ')}</span>
+                                <span className="text-xs mt-1 sm:mt-0 px-2 py-1 bg-gray-600 text-gray-300 rounded-full">{election.status.replace(/_/g, ' ')}</span>
                             </div>
                             <p className="text-sm text-gray-400 mb-1">
                               Filing Closes: {timeInfo.relative}
@@ -290,11 +278,11 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                             <p className="text-xs text-gray-500 mb-3">
                                 ({timeInfo.absolute})
                             </p>
-                            
+
                             <div className="flex flex-wrap gap-2 items-center">
                                 {canFile && !isUserFiledInThisElection && (
-                                    <button 
-                                        onClick={() => handleFileForElection(election.id, election.filing_fee)} 
+                                    <button
+                                        onClick={() => handleFileForElection(election.id, election.filing_fee)}
                                         disabled={isProcessingAction}
                                         className="bg-green-600 text-xs px-3 py-1.5 rounded hover:bg-green-700 disabled:bg-gray-500 flex items-center"
                                     >
@@ -307,8 +295,8 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                                     </span>
                                 )}
                                 {canWithdraw && (
-                                     <button 
-                                        onClick={() => handleWithdrawFromElection(election.id)} 
+                                     <button
+                                        onClick={() => handleWithdrawFromElection(election.id)}
                                         disabled={isProcessingAction}
                                         className="bg-yellow-600 text-xs px-3 py-1.5 rounded hover:bg-yellow-700 disabled:bg-gray-500 flex items-center"
                                     >
@@ -334,11 +322,11 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                                                 <li key={c.user_id} className="flex justify-between items-center">
                                                     <span>
                                                         <Link to={`/profile/${c.user_id}`} className="hover:text-blue-400 font-medium">{c.first_name} {c.last_name}</Link>
-                                                        <span className="text-gray-400"> ({c.party || 'N/A'})</span> {/* Added party fallback */}
+                                                        <span className="text-gray-400"> ({c.party || 'N/A'})</span>
                                                     </span>
                                                     {currentUser.id !== c.user_id && selectedElection.status === 'campaign_active' && (
-                                                        <button 
-                                                            onClick={() => handleAttackAd(c.user_id)} 
+                                                        <button
+                                                            onClick={() => handleAttackAd(c.user_id)}
                                                             disabled={isProcessingAction}
                                                             className="text-xs bg-red-500/50 px-2 py-0.5 rounded hover:bg-red-500/80 disabled:bg-gray-500"
                                                         >
@@ -349,23 +337,33 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                                             ))}
                                         </ul>
                                     ) : <p className="text-xs text-gray-500 pl-4">No candidates have filed yet.</p>}
-                                    
+
                                     {selectedElection.status === 'campaign_active' && selectedElection.candidates?.length > 0 && (
-                                         <button 
-                                            onClick={() => handleViewPolling(selectedElection.id)} 
+                                         <button
+                                            onClick={() => handleViewPolling(selectedElection.id)}
                                             disabled={loadingElectionDetails}
                                             className="text-xs bg-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-500 disabled:bg-gray-500"
                                         >
                                             <BarChart2 size={12} className="inline mr-1"/> View Polling
                                         </button>
                                     )}
-                                    {pollingData.length > 0 && (
-                                        <div className="bg-gray-600/40 p-2 rounded-md mt-2">
-                                            <h6 className="font-semibold text-xs mb-1 text-gray-200">Polling:</h6>
-                                            <ul className="text-xs space-y-0.5 text-gray-300">
-                                                {pollingData.map(p => <li key={p.user_id}>{p.username || `${p.first_name} ${p.last_name}`}: {p.percentage}%</li>)}
+                                    {/* UPDATED: Polling display logic */}
+                                    {pollingData && pollingData.poll_data ? (
+                                        <div className="bg-gray-600/40 p-3 rounded-md mt-2">
+                                            <h6 className="font-semibold text-sm mb-1 text-gray-200">
+                                                Poll by: <span className="font-normal">{pollingData.polling_firm}</span>
+                                            </h6>
+                                            <p className="text-xs text-gray-400 mb-2">
+                                                Margin of Error: +/- {pollingData.margin_of_error}%
+                                            </p>
+                                            <ul className="text-sm space-y-1 text-gray-300">
+                                                {pollingData.poll_data.map(p => <li key={p.user_id}>{p.username || `${p.first_name} ${p.last_name}`}: {p.percentage}%</li>)}
                                             </ul>
                                         </div>
+                                    ) : (
+                                        pollingData && pollingData.length === 0 && (
+                                            <p className="text-xs text-gray-500 mt-2">No polls available for this election yet.</p>
+                                        )
                                     )}
                                 </div>
                             )}
