@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiCall } from '../api';
 import { stanceScale, allStates, stateData as allStateData } from '../state-data';
-import { Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, Hash, Copy, Check, AlertTriangle } from 'lucide-react';
+import { Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, Hash, Copy, Check, AlertTriangle, Lock } from 'lucide-react';
 
 // Helper to get stance label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value, 10))?.label || 'Moderate';
@@ -34,6 +34,7 @@ const religionOptions = [
     "Christianity", "Judaism", "Islam", "Buddhism", "Hinduism", "Sikhism",
     "Atheist", "Agnostic", "Spiritual but not religious", "None", "Other", "Prefer not to say"
 ];
+const NAME_CHANGE_COOLDOWN_DAYS = 7;
 
 export default function ProfilePage({ currentUser, setCurrentUser }) {
     const { userId: paramsUserId } = useParams();
@@ -49,18 +50,35 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     const [justCopied, setJustCopied] = useState(false);
     const [alignment, setAlignment] = useState({ economicMatch: 'N/A', socialMatch: 'N/A', overallAlignment: 'N/A' });
     const [bioCharCount, setBioCharCount] = useState(0);
+    const [isNameChangeCooldownActive, setIsNameChangeCooldownActive] = useState(false);
+    const [nextNameChangeDate, setNextNameChangeDate] = useState(null);
 
     const clearMessages = () => {
         setError('');
         setSuccess('');
     };
+    
+    const initializeEditableFields = useCallback((data) => {
+        if (data) {
+            setEditableFields({
+                firstName: data.first_name || '', lastName: data.last_name || '',
+                party: data.party || '', home_state: data.home_state || '',
+                economic_stance: data.economic_stance || 4, social_stance: data.social_stance || 4,
+                bio: data.bio || '', gender: data.gender || '',
+                race: data.race || '', religion: data.religion || '',
+                age: data.age || '',
+            });
+            setBioCharCount(data.bio?.length || 0);
+        }
+    }, []);
+
 
     const loadProfile = useCallback(async () => {
         setLoading(true);
         clearMessages();
 
         if (!currentUser) {
-            navigate('/');
+            navigate('/'); // Should be handled by App.js routing, but as a fallback
             return;
         }
 
@@ -72,51 +90,59 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
 
             const data = viewingOwnProfile ? currentUser : await apiCall(`/profiles/${targetUserId}`);
             setProfileData(data);
-            setBioCharCount(data.bio?.length || 0);
+            // Initialize editable fields with fetched/current data, this will be used when toggling editMode
+            initializeEditableFields(data); 
             
-            // Initialize editableFields with current profile data when component loads or profileData changes
-            // This ensures that when "Edit Profile" is clicked, the fields are pre-filled
-            setEditableFields({
-                firstName: data.first_name || '', lastName: data.last_name || '',
-                party: data.party || '', home_state: data.home_state || '',
-                economic_stance: data.economic_stance || 4, social_stance: data.social_stance || 4,
-                bio: data.bio || '', gender: data.gender || '',
-                race: data.race || '', religion: data.religion || '',
-                age: data.age || '',
-            });
-            
-            if (data.home_state) {
+            if (data.home_state && data.economic_stance !== undefined && data.social_stance !== undefined) {
                 setAlignment(calculateStateAlignment(data.economic_stance, data.social_stance, data.home_state));
+            } else {
+                 setAlignment({ economicMatch: 'N/A', socialMatch: 'N/A', overallAlignment: 'N/A' });
             }
+
+            // Check for name change cooldown
+            if (viewingOwnProfile && data.last_name_change_date) {
+                const lastChange = new Date(data.last_name_change_date);
+                const cooldownEnds = new Date(lastChange.setDate(lastChange.getDate() + NAME_CHANGE_COOLDOWN_DAYS));
+                const today = new Date();
+                if (today < cooldownEnds) {
+                    setIsNameChangeCooldownActive(true);
+                    setNextNameChangeDate(cooldownEnds.toLocaleDateString());
+                } else {
+                    setIsNameChangeCooldownActive(false);
+                    setNextNameChangeDate(null);
+                }
+            } else {
+                 setIsNameChangeCooldownActive(false);
+                 setNextNameChangeDate(null);
+            }
+
 
         } catch (err) {
             setError(`Failed to load profile: ${err.message}`);
+            setProfileData(null); 
         } finally {
             setLoading(false);
         }
-    }, [paramsUserId, currentUser, navigate]);
+    }, [paramsUserId, currentUser, navigate, initializeEditableFields]);
 
     useEffect(() => {
         if (currentUser) {
             loadProfile();
         }
-    }, [currentUser, paramsUserId]); // Rerun if currentUser changes or if paramsUserId changes (navigating between profiles)
+    }, [currentUser, paramsUserId, loadProfile]);
 
-    // This effect ensures editableFields are updated if profileData changes (e.g., after a save)
-    // and the component is not in edit mode.
-    useEffect(() => {
-        if (profileData && !editMode) {
-             setEditableFields({
-                firstName: profileData.first_name || '', lastName: profileData.last_name || '',
-                party: profileData.party || '', home_state: profileData.home_state || '',
-                economic_stance: profileData.economic_stance || 4, social_stance: profileData.social_stance || 4,
-                bio: profileData.bio || '', gender: profileData.gender || '',
-                race: profileData.race || '', religion: profileData.religion || '',
-                age: profileData.age || '',
-            });
-            setBioCharCount(profileData.bio?.length || 0);
+     useEffect(() => {
+        if (editMode && isOwnProfile && profileData) {
+            // When entering edit mode, ensure editableFields is based on the latest profileData
+            initializeEditableFields(profileData);
         }
-    }, [profileData, editMode]);
+        // Update alignment when editable fields change (stances/home_state) in edit mode
+        if (editMode && isOwnProfile && editableFields.home_state && editableFields.economic_stance !== undefined && editableFields.social_stance !== undefined) {
+            setAlignment(calculateStateAlignment(editableFields.economic_stance, editableFields.social_stance, editableFields.home_state));
+        } else if (!editMode && profileData && profileData.home_state) { // Also update alignment when viewing and profileData is set
+             setAlignment(calculateStateAlignment(profileData.economic_stance, profileData.social_stance, profileData.home_state));
+        }
+    }, [editMode, isOwnProfile, profileData, initializeEditableFields, editableFields.economic_stance, editableFields.social_stance, editableFields.home_state]);
 
 
     const handleInputChange = (e) => {
@@ -138,6 +164,18 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     const handleSaveChanges = async () => {
         clearMessages();
         let pcCost = 0;
+        let nameChangeAttempted = (editableFields.firstName !== profileData.first_name || editableFields.lastName !== profileData.last_name);
+
+        if (nameChangeAttempted && isNameChangeCooldownActive) {
+            setError(`You cannot change your name yet. Next available change: ${nextNameChangeDate}.`);
+            return;
+        }
+        if (nameChangeAttempted && !isNameChangeCooldownActive) {
+            if (!window.confirm(`You are about to change your character's name. This can only be done once every ${NAME_CHANGE_COOLDOWN_DAYS} days. Are you sure?`)) {
+                return;
+            }
+        }
+
         if (editableFields.economic_stance !== profileData.economic_stance) pcCost += 5;
         if (editableFields.social_stance !== profileData.social_stance) pcCost += 5;
 
@@ -146,15 +184,18 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             return;
         }
         if (pcCost > 0) {
-            if (!window.confirm(`This change will cost ${pcCost} Political Capital and may affect your approval rating. Proceed?`)) {
+            if (!window.confirm(`Changing stances will cost ${pcCost} Political Capital and may affect your approval rating. Proceed?`)) {
                 return;
             }
         }
 
         try {
             const payload = { 
-                firstName: editableFields.firstName,
-                lastName: editableFields.lastName,
+                // Only send names if they have actually changed and cooldown is not active
+                ...(nameChangeAttempted && !isNameChangeCooldownActive && { 
+                    firstName: editableFields.firstName,
+                    lastName: editableFields.lastName,
+                }),
                 economicStance: parseInt(editableFields.economic_stance, 10),
                 socialStance: parseInt(editableFields.social_stance, 10),
                 bio: editableFields.bio,
@@ -163,26 +204,49 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 religion: editableFields.religion,
                 age: editableFields.age ? parseInt(editableFields.age, 10) : null,
             };
-            // Only include name fields if they've actually changed from the original profileData
-            if (editableFields.firstName === profileData.first_name) delete payload.firstName;
-            if (editableFields.lastName === profileData.last_name) delete payload.lastName;
-
-
+            
             const response = await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) });
-            setProfileData(response.updatedProfile);
+            setProfileData(response.updatedProfile); // Update local profileData
             if (setCurrentUser) setCurrentUser(response.updatedProfile); // Update global state
             setEditMode(false);
             setSuccess(response.message || 'Profile updated successfully!');
+             // Re-check cooldown after successful save, especially if name was changed
+            if (response.updatedProfile.last_name_change_date) {
+                const lastChange = new Date(response.updatedProfile.last_name_change_date);
+                const cooldownEnds = new Date(lastChange.setDate(lastChange.getDate() + NAME_CHANGE_COOLDOWN_DAYS));
+                const today = new Date();
+                if (today < cooldownEnds) {
+                    setIsNameChangeCooldownActive(true);
+                    setNextNameChangeDate(cooldownEnds.toLocaleDateString());
+                } else {
+                    setIsNameChangeCooldownActive(false);
+                    setNextNameChangeDate(null);
+                }
+            }
+
+
         } catch (err) {
             setError(`Failed to save changes: ${err.message}`);
         }
     };
     
-    const copyProfileLink = () => { /* ... (same as before) ... */ };
-    const renderGubernatorialHistory = (history) => { /* ... (same as before) ... */ };
+    const copyProfileLink = () => {
+        const link = `${window.location.origin}/profile/${profileData.id}`;
+        navigator.clipboard.writeText(link).then(() => {
+            setJustCopied(true);
+            setTimeout(() => setJustCopied(false), 2000);
+        });
+    };
+    
+    const renderGubernatorialHistory = (history) => {
+        if (!history || typeof history !== 'object' || Object.keys(history).length === 0) {
+            return <p className="text-sm text-gray-500">No gubernatorial history.</p>;
+        }
+        return ( <ul className="space-y-2"> {Object.entries(history).map(([state, data]) => ( <li key={state} className="text-sm"> <strong className="text-gray-300">{state}:</strong> {data.terms_served} term(s) served. {data.previous_terms && data.previous_terms.length > 0 && ( <ul className="list-disc list-inside pl-4 text-xs text-gray-400"> {data.previous_terms.map((term, i) => <li key={i}>{term.start_year} - {term.end_year}</li>)} </ul> )} </li> ))} </ul> );
+    };
 
     if (loading) return <div className="text-center py-10 text-gray-400">Loading profile...</div>;
-    if (error && !profileData && !loading) return <div className="bg-red-500/20 text-red-400 p-4 rounded-lg">{error}</div>; // Show error if profileData is null and there's an error
+    if (error && !profileData && !loading) return <div className="bg-red-500/20 text-red-400 p-4 rounded-lg">{error}</div>;
     if (!profileData && !loading) return <div className="text-center py-10 text-gray-400">Profile not found.</div>;
     if (!profileData) return <div className="text-center py-10 text-gray-400">Profile data unavailable. Please refresh.</div>;
 
@@ -193,16 +257,23 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             {success && <p className="bg-green-500/20 text-green-300 p-3 rounded text-sm mb-4 flex items-center"><Check size={16} className="mr-2"/>{success}</p>}
             
             {isOwnProfile && ( <div className="mb-4 bg-gray-900/50 p-3 rounded-lg"> <label className="text-xs text-gray-400">Your Shareable Profile Link</label> <div className="flex items-center gap-2 mt-1"> <input type="text" readOnly value={`${window.location.origin}/profile/${profileData.id}`} className="w-full bg-gray-700 text-gray-300 p-1 rounded-md text-sm border-gray-600"/> <button onClick={copyProfileLink} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm flex items-center shrink-0"> {justCopied ? <Check size={16} className="mr-1.5"/> : <Copy size={16} className="mr-1.5"/>} {justCopied ? 'Copied!' : 'Copy'} </button> </div> </div> )}
+             {isOwnProfile && isNameChangeCooldownActive && editMode && (
+                <div className="mb-4 bg-yellow-600/20 text-yellow-300 p-3 rounded text-sm flex items-center">
+                    <Lock size={16} className="mr-2" />
+                    Name fields are locked. You can change your name again on {nextNameChangeDate}.
+                </div>
+            )}
 
-            <div className="flex justify-between items-start mb-6"> <h2 className="text-3xl font-bold text-blue-300"> {profileData.first_name} {profileData.last_name} <span className="text-lg text-gray-400 ml-2">(@{profileData.username})</span> </h2> {isOwnProfile && ( <div> {editMode ? ( <div className="flex gap-2"> <button onClick={handleSaveChanges} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Save size={16} className="mr-2"/> Save</button> <button onClick={() => { setEditMode(false); clearMessages(); setEditableFields(profileData); setBioCharCount(profileData.bio?.length || 0); }} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">Cancel</button> </div> ) : ( <button onClick={() => { setEditableFields(profileData); setBioCharCount(profileData.bio?.length || 0); setEditMode(true); clearMessages();}} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Edit3 size={16} className="mr-2"/> Edit Profile</button> )} </div> )} </div>
+
+            <div className="flex justify-between items-start mb-6"> <h2 className="text-3xl font-bold text-blue-300"> {profileData.first_name} {profileData.last_name} <span className="text-lg text-gray-400 ml-2">(@{profileData.username})</span> </h2> {isOwnProfile && ( <div> {editMode ? ( <div className="flex gap-2"> <button onClick={handleSaveChanges} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Save size={16} className="mr-2"/> Save</button> <button onClick={() => { setEditMode(false); clearMessages(); initializeEditableFields(profileData); }} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">Cancel</button> </div> ) : ( <button onClick={() => { initializeEditableFields(profileData); setEditMode(true); clearMessages();}} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Edit3 size={16} className="mr-2"/> Edit Profile</button> )} </div> )} </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-1 space-y-6">
                     <InfoCard title="Personal Information" icon={<User size={18}/>}>
                         {isOwnProfile && editMode ? (
                             <>
-                                <EditableField label="First Name" name="firstName" value={editableFields.firstName || ''} onChange={handleInputChange} />
-                                <EditableField label="Last Name" name="lastName" value={editableFields.lastName || ''} onChange={handleInputChange} />
+                                <EditableField label="First Name" name="firstName" value={editableFields.firstName || ''} onChange={handleInputChange} disabled={isNameChangeCooldownActive} />
+                                <EditableField label="Last Name" name="lastName" value={editableFields.lastName || ''} onChange={handleInputChange} disabled={isNameChangeCooldownActive} />
                                 <EditableDropdownField label="Age" name="age" value={editableFields.age || ''} onChange={handleInputChange} options={ageOptions.map(age => ({value: age, label: age.toString()}))} placeholder="Select Age"/>
                                 <EditableDropdownField label="Gender" name="gender" value={editableFields.gender || ''} onChange={handleInputChange} options={genderOptions.map(g => ({value: g, label: g}))} placeholder="Select Gender"/>
                                 <EditableDropdownField label="Race/Ethnicity" name="race" value={editableFields.race || ''} onChange={handleInputChange} options={raceOptions.map(r => ({value: r, label: r}))} placeholder="Select Race/Ethnicity"/>
@@ -251,7 +322,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                 <ReadOnlyField label="Social Stance" value={getStanceLabel(profileData.social_stance)} />
                             </>
                         )}
-                        { profileData.home_state && (
+                        { profileData.home_state && (profileData.economic_stance !== undefined && profileData.social_stance !== undefined) && (
                             <div className="bg-gray-700/50 p-3 rounded-md mt-3">
                                 <h4 className="text-xs font-semibold text-gray-200 mb-1">Alignment with {profileData.home_state}:</h4>
                                 <p className="text-xs text-gray-300">Economic Match: <span className="font-bold text-gray-100">{alignment.economicMatch}%</span></p>
@@ -284,7 +355,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
 // Helper Components (InfoCard, ReadOnlyField, EditableField, EditableDropdownField)
 const InfoCard = ({ title, icon, children }) => ( <div className="bg-gray-700/50 p-4 rounded-lg shadow-lg"> <h3 className="text-lg font-semibold text-blue-200 mb-3 flex items-center border-b border-gray-600 pb-2"> {icon && React.cloneElement(icon, { className: "mr-2" })} {title} </h3> <div className="space-y-2">{children}</div> </div> );
 const ReadOnlyField = ({ label, value, icon }) => ( <div> <span className="text-xs text-gray-400 block">{label}</span> <p className="text-sm text-gray-200 flex items-center"> {icon && React.cloneElement(icon, { className: "mr-1.5 text-gray-400" })} {value} </p> </div> );
-const EditableField = ({ label, name, value, onChange, type = "text", placeholder }) => ( <div className="mb-2"> <label htmlFor={name} className="block text-xs font-medium text-gray-300 mb-0.5">{label}</label> <input type={type} name={name} id={name} value={value || ''} onChange={onChange} placeholder={placeholder || label} className="w-full p-1.5 bg-gray-600 rounded text-white border border-gray-500 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" /> </div> );
+const EditableField = ({ label, name, value, onChange, type = "text", placeholder, disabled = false }) => ( <div className="mb-2"> <label htmlFor={name} className="block text-xs font-medium text-gray-300 mb-0.5">{label}</label> <input type={type} name={name} id={name} value={value || ''} onChange={onChange} placeholder={placeholder || label} disabled={disabled} className={`w-full p-1.5 bg-gray-600 rounded text-white border border-gray-500 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`} /> </div> );
 const EditableDropdownField = ({ label, name, value, onChange, options, placeholder }) => (
     <div className="mb-2">
         <label htmlFor={name} className="block text-xs font-medium text-gray-300 mb-0.5">{label}</label>
