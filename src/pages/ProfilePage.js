@@ -35,28 +35,27 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     const [editMode, setEditMode] = useState(false);
     const [editableFields, setEditableFields] = useState({});
     const [justCopied, setJustCopied] = useState(false);
-
     const [alignment, setAlignment] = useState({ economicMatch: 'N/A', socialMatch: 'N/A', overallAlignment: 'N/A' });
 
     const loadProfile = useCallback(async () => {
         setLoading(true);
         setError('');
+
+        // If there's no currentUser prop, we can't do anything. Redirect to login.
+        if (!currentUser) {
+            navigate('/login'); // Or your main auth page
+            return;
+        }
+
         try {
-            // The /auth/profile endpoint is the source of truth for the logged-in user.
-            const loggedInUser = await apiCall('/auth/profile');
-            
-            // Determine which profile to load based on URL params
-            const targetUserId = paramsUserId || loggedInUser.id;
-            const viewingOwnProfile = targetUserId === loggedInUser.id;
+            const targetUserId = paramsUserId || currentUser.id;
+            const viewingOwnProfile = targetUserId === currentUser.id;
             setIsOwnProfile(viewingOwnProfile);
-            
-            // If we're viewing our own profile, we already have the data. Otherwise, fetch it.
-            const data = viewingOwnProfile ? loggedInUser : await apiCall(`/profiles/${targetUserId}`);
+
+            const data = viewingOwnProfile ? currentUser : await apiCall(`/profiles/${targetUserId}`);
             setProfileData(data);
             
-            // If it's our own profile, update the global state and set fields for editing
             if (viewingOwnProfile) {
-                setCurrentUser(data);
                 setEditableFields({
                     firstName: data.first_name || '', lastName: data.last_name || '',
                     party: data.party || '', home_state: data.home_state || '',
@@ -76,7 +75,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         } finally {
             setLoading(false);
         }
-    }, [paramsUserId, setCurrentUser]);
+    }, [paramsUserId, currentUser, navigate]);
 
     useEffect(() => {
         loadProfile();
@@ -107,7 +106,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             };
             const { updatedProfile } = await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) });
             setProfileData(updatedProfile);
-            setCurrentUser(updatedProfile);
+            if (setCurrentUser) setCurrentUser(updatedProfile);
             setEditMode(false);
         } catch (err) {
             setError(`Failed to save changes: ${err.message}`);
@@ -122,7 +121,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         });
     };
     
-    // ... (renderGubernatorialHistory function remains the same) ...
     const renderGubernatorialHistory = (history) => {
         if (!history || typeof history !== 'object' || Object.keys(history).length === 0) {
             return <p className="text-sm text-gray-500">No gubernatorial history.</p>;
@@ -151,7 +149,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         <div className="bg-gray-800 p-4 sm:p-6 rounded-lg shadow-2xl max-w-4xl mx-auto">
             {error && <p className="bg-red-500/20 text-red-300 p-3 rounded text-sm mb-4">{error}</p>}
             
-            {/* NEW: Shareable Profile Link */}
             {isOwnProfile && (
                 <div className="mb-4 bg-gray-900/50 p-3 rounded-lg">
                     <label className="text-xs text-gray-400">Your Shareable Profile Link</label>
@@ -171,7 +168,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                     <span className="text-lg text-gray-400 ml-2">(@{profileData.username})</span>
                 </h2>
                 
-                {/* UPDATED: Simplified display logic for Edit/Save buttons */}
                 {isOwnProfile && (
                     <div>
                         {editMode ? (
@@ -186,24 +182,17 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 )}
             </div>
 
-            {/* The rest of the profile page grid remains largely the same... */}
-            {/* Main Profile Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Left Column: Basic Info & Stats */}
                 <div className="md:col-span-1 space-y-6">
-                    {/* Personal Info */}
                     <InfoCard title="Personal Information" icon={<User size={18}/>}>
                         {isOwnProfile && editMode ? (
                             <>
                                 <EditableField label="First Name" name="firstName" value={editableFields.firstName} onChange={handleInputChange} />
                                 <EditableField label="Last Name" name="lastName" value={editableFields.lastName} onChange={handleInputChange} />
                             </>
-                        ) : (
-                            <ReadOnlyField label="Name" value={`${profileData.first_name} ${profileData.last_name}`} />
-                        )}
-                         {isOwnProfile && <ReadOnlyField label="Email" value={profileData.email} icon={<Mail size={14}/>} />}
-                         <ReadOnlyField label="Username" value={`@${profileData.username}`} icon={<Hash size={14}/>} />
-
+                        ) : ( <ReadOnlyField label="Name" value={`${profileData.first_name} ${profileData.last_name}`} /> )}
+                        {isOwnProfile && <ReadOnlyField label="Email" value={profileData.email} icon={<Mail size={14}/>} />}
+                        <ReadOnlyField label="Username" value={`@${profileData.username}`} icon={<Hash size={14}/>} />
                         {isOwnProfile && editMode ? (
                             <>
                                 <EditableField label="Age" name="age" type="number" value={editableFields.age} onChange={handleInputChange} placeholder="Optional"/>
@@ -220,8 +209,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                             </>
                         )}
                     </InfoCard>
-
-                    {/* Political Stats */}
                     <InfoCard title="Political Stats" icon={<TrendingUp size={18}/>}>
                         <ReadOnlyField label="Approval Rating" value={`${profileData.approval_rating}%`} />
                         <ReadOnlyField label="Campaign Funds" value={`$${profileData.campaign_funds?.toLocaleString()}`} icon={<DollarSign size={14}/>}/>
@@ -231,10 +218,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                         <ReadOnlyField label="Campaign Strength" value={`${profileData.campaign_strength}%`} />
                     </InfoCard>
                 </div>
-
-                {/* Right Column: Political Identity, Bio, History */}
                 <div className="md:col-span-2 space-y-6">
-                     {/* Political Identity */}
                     <InfoCard title="Political Identity" icon={<Shield size={18}/>}>
                         {isOwnProfile && editMode ? (
                             <>
@@ -273,17 +257,11 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                             </div>
                         )}
                     </InfoCard>
-                    
-                    {/* Bio */}
                     <InfoCard title="Biography" icon={<Info size={18}/>}>
-                        {isOwnProfile && editMode ? (
+                        {isOwn_profile && editMode ? (
                             <textarea name="bio" value={editableFields.bio} onChange={handleInputChange} placeholder="Your political background, goals, and vision..." className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 h-28 text-sm"></textarea>
-                        ) : (
-                            <p className="text-sm text-gray-300 whitespace-pre-wrap">{profileData.bio || <span className="text-gray-500">No bio provided.</span>}</p>
-                        )}
+                        ) : ( <p className="text-sm text-gray-300 whitespace-pre-wrap">{profileData.bio || <span className="text-gray-500">No bio provided.</span>}</p> )}
                     </InfoCard>
-
-                    {/* Election History */}
                     <InfoCard title="Political Career" icon={<Award size={18}/>}>
                          <ReadOnlyField label="Current Office" value={profileData.current_office || 'Citizen'} />
                          <ReadOnlyField label="Elections Won" value={profileData.elections_won || 0} />
@@ -300,38 +278,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     );
 }
 
-// Helper components for Profile Page structure
-const InfoCard = ({ title, icon, children }) => (
-    <div className="bg-gray-700/50 p-4 rounded-lg shadow-lg">
-        <h3 className="text-lg font-semibold text-blue-200 mb-3 flex items-center border-b border-gray-600 pb-2">
-            {icon && React.cloneElement(icon, { className: "mr-2" })}
-            {title}
-        </h3>
-        <div className="space-y-2">{children}</div>
-    </div>
-);
-
-const ReadOnlyField = ({ label, value, icon }) => (
-    <div>
-        <span className="text-xs text-gray-400 block">{label}</span>
-        <p className="text-sm text-gray-200 flex items-center">
-             {icon && React.cloneElement(icon, { className: "mr-1.5 text-gray-400" })}
-            {value}
-        </p>
-    </div>
-);
-
-const EditableField = ({ label, name, value, onChange, type = "text", placeholder }) => (
-    <div className="mb-2">
-        <label htmlFor={name} className="block text-xs font-medium text-gray-300 mb-0.5">{label}</label>
-        <input
-            type={type}
-            name={name}
-            id={name}
-            value={value || ''}
-            onChange={onChange}
-            placeholder={placeholder || label}
-            className="w-full p-1.5 bg-gray-600 rounded text-white border border-gray-500 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-        />
-    </div>
-);
+const InfoCard = ({ title, icon, children }) => ( <div className="bg-gray-700/50 p-4 rounded-lg shadow-lg"> <h3 className="text-lg font-semibold text-blue-200 mb-3 flex items-center border-b border-gray-600 pb-2"> {icon && React.cloneElement(icon, { className: "mr-2" })} {title} </h3> <div className="space-y-2">{children}</div> </div> );
+const ReadOnlyField = ({ label, value, icon }) => ( <div> <span className="text-xs text-gray-400 block">{label}</span> <p className="text-sm text-gray-200 flex items-center"> {icon && React.cloneElement(icon, { className: "mr-1.5 text-gray-400" })} {value} </p> </div> );
+const EditableField = ({ label, name, value, onChange, type = "text", placeholder }) => ( <div className="mb-2"> <label htmlFor={name} className="block text-xs font-medium text-gray-300 mb-0.5">{label}</label> <input type={type} name={name} id={name} value={value || ''} onChange={onChange} placeholder={placeholder || label} className="w-full p-1.5 bg-gray-600 rounded text-white border border-gray-500 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500" /> </div> );
