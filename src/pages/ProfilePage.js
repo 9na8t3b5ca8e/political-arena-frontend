@@ -25,14 +25,14 @@ const calculateStateAlignment = (playerEconomic, playerSocial, stateName) => {
 
 // Dropdown options
 const ageOptions = Array.from({ length: (90 - 18) + 1 }, (_, i) => 18 + i);
-const genderOptions = ["Male", "Female", "Non-binary", "Other", "Prefer not to say"];
+const genderOptions = ["Male", "Female", "Non-binary"];
 const raceOptions = [
     "White", "Black or African American", "Asian", "American Indian or Alaska Native",
-    "Native Hawaiian or Other Pacific Islander", "Hispanic or Latino", "Two or More Races", "Other", "Prefer not to say"
+    "Native Hawaiian or Other Pacific Islander", "Hispanic or Latino", "Two or More Races", "Other"
 ];
 const religionOptions = [
-    "Christianity", "Judaism", "Islam", "Buddhism", "Hinduism", "Sikhism",
-    "Atheist", "Agnostic", "Spiritual but not religious", "None", "Other", "Prefer not to say"
+    "Christianity: Protestant", "Christianity: Catholic", "Judaism", "Islam", "Buddhism", "Hinduism", "Sikhism",
+    "Atheist", "Agnostic", "Spiritual but not religious", "None", "Other"
 ];
 
 export default function ProfilePage({ currentUser, setCurrentUser }) {
