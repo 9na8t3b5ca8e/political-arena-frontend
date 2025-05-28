@@ -42,13 +42,15 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         setError('');
 
         if (!currentUser) {
-            navigate('/'); // Navigate home if no user, e.g. on refresh
+            navigate('/');
             return;
         }
 
         try {
-            const targetUserId = paramsUserId || currentUser.id;
+            // THE FIX IS HERE: We now use parseInt on the param from the URL
+            const targetUserId = paramsUserId ? parseInt(paramsUserId, 10) : currentUser.id;
             const viewingOwnProfile = targetUserId === currentUser.id;
+            
             setIsOwnProfile(viewingOwnProfile);
 
             const data = viewingOwnProfile ? currentUser : await apiCall(`/profiles/${targetUserId}`);
@@ -77,8 +79,10 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     }, [paramsUserId, currentUser, navigate]);
 
     useEffect(() => {
-        loadProfile();
-    }, [loadProfile]);
+        if (currentUser) {
+            loadProfile();
+        }
+    }, [currentUser, loadProfile]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
