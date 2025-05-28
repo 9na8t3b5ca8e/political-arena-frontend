@@ -6,7 +6,6 @@ import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays } from '
 // This is the main navigation bar for the application.
 // It receives the currentUser, logout function, and gameDate as props.
 export default function Navbar({ currentUser, logout, gameDate }) {
-  console.log("Navbar received gameDate:", gameDate);
   const navLinkStyles = ({ isActive }) => ({
     color: isActive ? '#60a5fa' : '#9ca3af', // text-blue-400 or text-gray-400
     fontWeight: isActive ? 'bold' : 'normal',
@@ -29,8 +28,8 @@ export default function Navbar({ currentUser, logout, gameDate }) {
             <nav className="flex items-center space-x-2 sm:space-x-4 ml-4 sm:ml-6">
             <NavLink to="/" style={navLinkStyles} className="text-sm sm:text-base">Home</NavLink>
             {currentUser && currentUser.home_state && (
-                <NavLink 
-                to={`/state/${encodeURIComponent(currentUser.home_state)}`} 
+                <NavLink
+                to={`/state/${encodeURIComponent(currentUser.home_state)}`}
                 style={navLinkStyles}
                 className="flex items-center text-sm sm:text-base"
                 >
@@ -38,7 +37,8 @@ export default function Navbar({ currentUser, logout, gameDate }) {
                 </NavLink>
             )}
             <NavLink to="/map" style={navLinkStyles} className="text-sm sm:text-base">USA Map</NavLink>
-            <NavLink to="/profile" style={navLinkStyles} className="text-sm sm:text-base">Profile</NavLink>
+            {/* UPDATED: Ensured the NavLink to the profile page includes the user's ID */}
+            <NavLink to={`/profile/${currentUser.id}`} style={navLinkStyles} className="text-sm sm:text-base">Profile</NavLink>
             </nav>
         </div>
 
