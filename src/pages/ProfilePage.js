@@ -41,9 +41,8 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         setLoading(true);
         setError('');
 
-        // If there's no currentUser prop, we can't do anything. Redirect to login.
         if (!currentUser) {
-            navigate('/login'); // Or your main auth page
+            navigate('/'); // Navigate home if no user, e.g. on refresh
             return;
         }
 
@@ -258,7 +257,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                         )}
                     </InfoCard>
                     <InfoCard title="Biography" icon={<Info size={18}/>}>
-                        {isOwn_profile && editMode ? (
+                        {isOwnProfile && editMode ? (
                             <textarea name="bio" value={editableFields.bio} onChange={handleInputChange} placeholder="Your political background, goals, and vision..." className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 h-28 text-sm"></textarea>
                         ) : ( <p className="text-sm text-gray-300 whitespace-pre-wrap">{profileData.bio || <span className="text-gray-500">No bio provided.</span>}</p> )}
                     </InfoCard>
