@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiCall } from '../api';
 import { stanceScale, allStates, stateData as allStateData } from '../state-data';
-import { Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, Copy, Check, AlertTriangle, Lock, Settings as SettingsIcon, ImageUp, Trash2, UserCircle2 } from 'lucide-react';
+import { Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, Copy, Check, AlertTriangle, Lock, Settings as SettingsIcon, image-up, Trash2, UserCircle2 } from 'lucide-react';
 import PasswordChangeModal from '../components/PasswordChangeModal';
 
 // Helper to get stance label
@@ -386,7 +386,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                     <UserCircle2 className="h-32 w-32 text-gray-500 border-4 border-gray-700 rounded-full p-2 mb-2"/>
                                 )}
                                 <label htmlFor="profilePictureInput" className="w-full text-center bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md cursor-pointer shadow-md text-xs flex items-center justify-center">
-                                    <ImageUp size={14} className="mr-1.5"/> Change Picture
+                                    <image-up size={14} className="mr-1.5"/> Change Picture
                                 </label>
                                 <input type="file" id="profilePictureInput" className="hidden" accept="image/png, image/jpeg, image/gif" onChange={handleProfilePictureChange} />
                                 {selectedProfilePictureFile && (
