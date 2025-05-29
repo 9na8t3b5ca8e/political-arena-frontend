@@ -8,7 +8,8 @@ import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
 import PartyPage from './pages/PartyPage';
 import { allStates, stateData, stanceScale } from './state-data';
-import StatePage from './pages/StatePage'; 
+import StatePage from './pages/StatePage';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // --- REGISTRATION DROPDOWN OPTIONS ---
 const genderOptions = ["Male", "Female", "Non-binary", "Other", "Prefer not to say"];
@@ -22,35 +23,10 @@ const religionOptions = [
 ];
 const ageOptions = Array.from({ length: (120 - 18) + 1 }, (_, i) => 18 + i); // Adjusted max age
 
-
-function App() {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+function AppContent() {
+  const { user: currentUser, loading, logout } = useAuth();
   const [gameDate, setGameDate] = useState(null);
 
-  const loadUserProfile = useCallback(async () => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const profile = await apiCall('/auth/profile'); 
-        console.log("App.js - loadUserProfile - Fetched profile for currentUser:", profile);
-      setCurrentUser(profile);
-    } catch (error) {
-      console.error("Failed to load profile, logging out.", error);
-      localStorage.removeItem('authToken');
-      setCurrentUser(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadUserProfile();
-  }, [loadUserProfile]);
-  
   useEffect(() => {
     if (currentUser) {
       const fetchGameDate = async () => {
@@ -69,25 +45,7 @@ function App() {
     }
   }, [currentUser]);
 
-  const logout = () => {
-    localStorage.removeItem('authToken');
-    setCurrentUser(null);
-  };
-
-  const handleSuccessfulAuth = useCallback(() => {
-    setLoading(true);
-    loadUserProfile(); 
-  }, [loadUserProfile]);
-  
-  const handleLoginSuccess = useCallback(() => {
-      // Instead of reload, trigger profile load which will update currentUser
-      // and navigate to main app. This also allows ProfileSetup to get the fresh profile.
-      loadUserProfile(); 
-      // Optionally navigate, but App component structure should handle this.
-  }, [loadUserProfile]);
-
-
-  if (loading && !localStorage.getItem('authToken')) { // Show loading only if no token and loading
+  if (loading) {
     return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading Application...</div>;
   }
 
@@ -100,11 +58,11 @@ function App() {
               <Navbar currentUser={currentUser} logout={logout} gameDate={gameDate} /> 
               <main className="mt-6">
                 <Routes>
-                  <Route path="/" element={<HomePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
+                  <Route path="/" element={<HomePage currentUser={currentUser} />} />
                   <Route path="/map" element={<MapPage />} />
-                  <Route path="/state/:stateName" element={<StatePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
-                  <Route path="/profile" element={<ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
-                  <Route path="/profile/:userId" element={<ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
+                  <Route path="/state/:stateName" element={<StatePage currentUser={currentUser} />} />
+                  <Route path="/profile" element={<ProfilePage currentUser={currentUser} />} />
+                  <Route path="/profile/:userId" element={<ProfilePage currentUser={currentUser} />} />
                   <Route path="/party" element={<PartyPage currentUser={currentUser} />} />
                   <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate to="/" />} />
@@ -113,7 +71,7 @@ function App() {
             </>
           ) : (
             <Routes>
-                <Route path="*" element={<AuthRouter onAuthSuccess={handleSuccessfulAuth} onLoginSuccess={handleLoginSuccess} setCurrentUserGlobal={setCurrentUser} />} />
+                <Route path="*" element={<AuthRouter />} />
             </Routes>
           )}
         </div>
@@ -122,21 +80,30 @@ function App() {
   );
 }
 
-function AuthRouter({ onAuthSuccess, onLoginSuccess, setCurrentUserGlobal }) {
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+function AuthRouter() {
     const [authAction, setAuthAction] = useState('login'); 
     const [profileDataForSetup, setProfileDataForSetup] = useState(null);
+    const { setUser } = useAuth();
 
     const handleRegistrationSuccess = (initialProfile) => {
-        setProfileDataForSetup(initialProfile); // Trigger ProfileSetup screen
+        setProfileDataForSetup(initialProfile);
     };
 
     if(profileDataForSetup) {
-        return <ProfileSetup currentUserData={profileDataForSetup} onSetupComplete={onAuthSuccess} setCurrentUserGlobal={setCurrentUserGlobal} />
+        return <ProfileSetup currentUserData={profileDataForSetup} onSetupComplete={() => setUser(profileDataForSetup)} />
     }
-    return <AuthScreen action={authAction} setAction={setAuthAction} onRegistrationSuccess={handleRegistrationSuccess} onLoginSuccess={onLoginSuccess} />
+    return <AuthScreen action={authAction} setAction={setAuthAction} onRegistrationSuccess={handleRegistrationSuccess} />
 }
 
-const AuthScreen = ({ action, setAction, onRegistrationSuccess, onLoginSuccess }) => {
+const AuthScreen = ({ action, setAction, onRegistrationSuccess }) => {
     const [form, setForm] = useState({});
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -153,8 +120,6 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess, onLoginSuccess }
                 // After successful registration, fetch the initial profile to pass to ProfileSetup
                 const initialProfile = await apiCall('/auth/profile');
                 onRegistrationSuccess(initialProfile); // Pass this to AuthRouter
-            } else { 
-                onLoginSuccess(); // For login, trigger App.js reload/profile fetch
             }
         } catch (err) { setError(err.message); } 
         finally { setLoading(false); }
@@ -189,7 +154,7 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess, onLoginSuccess }
     );
 };
 
-const ProfileSetup = ({ currentUserData, onSetupComplete, setCurrentUserGlobal }) => {
+const ProfileSetup = ({ currentUserData, onSetupComplete }) => {
     const [profileData, setProfileData] = useState({
         party: currentUserData.party || '',
         home_state: currentUserData.home_state || '',
@@ -258,9 +223,9 @@ const ProfileSetup = ({ currentUserData, onSetupComplete, setCurrentUserGlobal }
             });
 
             // --- FIX: Access the nested updatedProfile object ---
-            if (setCurrentUserGlobal && response && response.updatedProfile) {
-                console.log("App.js - ProfileSetup - Calling setCurrentUserGlobal with:", response.updatedProfile);
-                setCurrentUserGlobal(response.updatedProfile);
+            if (response && response.updatedProfile) {
+                console.log("App.js - ProfileSetup - Calling onSetupComplete with:", response.updatedProfile);
+                onSetupComplete(response.updatedProfile);
             } else if (!response || !response.updatedProfile) {
                 // If the structure is not as expected, log an error.
                 // This can happen if the backend PUT /api/profile route doesn't return { updatedProfile: ... }
@@ -269,7 +234,6 @@ const ProfileSetup = ({ currentUserData, onSetupComplete, setCurrentUserGlobal }
                 setIsSaving(false);
                 return; // Prevent calling onSetupComplete if data is bad
             }
-            onSetupComplete();
         } catch (err) {
             setError(`Failed to save profile: ${err.message}`);
         } finally {
