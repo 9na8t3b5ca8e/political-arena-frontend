@@ -1,9 +1,7 @@
 // frontend/src/components/CandidateFinanceWidget.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { getFinanceLedger, spendCampaignFunds, donateToCandidate } from '../api';
-import { DollarSign, Send, Landmark, User, X, Loader } from 'lucide-react';
-import sanitizeHtml from 'sanitize-html';
-
+import { DollarSign, Send, Landmark, X, Loader, AlertTriangle } from 'lucide-react';
 
 // Small Modal Component for Forms
 const Modal = ({ children, onClose }) => (
@@ -83,7 +81,6 @@ const DonateForm = ({ candidate, currentUser, setCurrentUser, onClose, setSucces
                 amount: parseFloat(amount),
                 source,
             });
-            // Only update candidate's funds on front-end if they are the current user (self-funding)
             if (candidate.user_id === currentUser.id) {
                 setCurrentUser(prev => ({ ...prev, campaign_funds: res.newCampaignFunds }));
             }
@@ -99,7 +96,6 @@ const DonateForm = ({ candidate, currentUser, setCurrentUser, onClose, setSucces
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <h3 className="text-xl font-bold text-teal-300">Donate to {candidate.first_name} {candidate.last_name}</h3>
-            {/* Add PAC toggle here if needed */}
             <div>
                 <label className="block text-sm font-medium text-gray-300">Amount</label>
                 <input type="number" value={amount} onChange={e => setAmount(e.target.value)} required min="1" className="w-full bg-gray-900 p-2 rounded mt-1" />
@@ -125,13 +121,19 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
     const isOwner = currentUser.id === candidate.user_id;
 
     const fetchLedger = useCallback(async () => {
-        if (!candidate?.election_candidate_id) return;
+        if (!candidate?.election_candidate_id) {
+            setError("Candidate ID is missing.");
+            setLoading(false);
+            return;
+        }
         setLoading(true);
+        setError('');
         try {
             const data = await getFinanceLedger(candidate.election_candidate_id);
             setLedger(data);
         } catch (err) {
-            setError('Failed to load financial data.');
+            console.error("Failed to fetch finance ledger:", err);
+            setError(`Failed to load financial data: ${err.message}`);
         } finally {
             setLoading(false);
         }
@@ -150,6 +152,12 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
         return <div className="p-4 bg-gray-700/50 rounded-lg mt-2 text-center text-gray-400"><Loader className="animate-spin inline-block mr-2" />Loading financial data...</div>;
     }
 
+    if (error) {
+         return <div className="p-4 bg-red-900/50 border border-red-700 rounded-lg mt-2 text-center text-red-300">
+            <AlertTriangle className="inline-block mr-2" /> {error}
+        </div>;
+    }
+
     return (
         <div className="p-4 bg-gray-700/50 rounded-lg mt-2 space-y-4 relative">
             <button onClick={onClose} className="absolute top-2 right-2 text-gray-500 hover:text-white"><X size={18}/></button>
@@ -157,7 +165,6 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
                 Financials for {candidate.first_name} {candidate.last_name}
             </h3>
             
-            {error && <div className="bg-red-500/20 text-red-300 p-2 rounded text-sm">{error}</div>}
             {success && <div className="bg-green-500/20 text-green-300 p-2 rounded text-sm">{success}</div>}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
@@ -182,7 +189,7 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
                 <div className="space-y-2">
                     <h4 className="font-semibold text-gray-200">Recent Contributions</h4>
                     <div className="bg-gray-800 p-3 rounded-lg max-h-48 overflow-y-auto text-sm space-y-2">
-                        {ledger.contributions.length > 0 ? ledger.contributions.slice(0, 10).map(c => (
+                        {ledger.contributions.length > 0 ? ledger.contributions.map(c => (
                             <div key={c.id} className="flex justify-between items-center text-gray-300">
                                 <div>
                                     <span className="font-medium">{c.source === 'pac' ? c.pac_name : c.donor_name}</span>
@@ -199,7 +206,7 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
                 <div className="space-y-2">
                     <h4 className="font-semibold text-gray-200">Recent Expenditures</h4>
                      <div className="bg-gray-800 p-3 rounded-lg max-h-48 overflow-y-auto text-sm space-y-2">
-                        {ledger.expenditures.length > 0 ? ledger.expenditures.slice(0, 10).map(e => (
+                        {ledger.expenditures.length > 0 ? ledger.expenditures.map(e => (
                              <div key={e.id} className="flex justify-between items-center text-gray-300">
                                 <span className="flex-1 pr-2 truncate" title={e.purpose}>{e.purpose}</span>
                                 <span className="font-mono text-red-400">-${parseFloat(e.amount).toLocaleString()}</span>
