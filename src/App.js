@@ -6,6 +6,7 @@ import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
+import PartyPage from './pages/PartyPage';
 import { allStates, stateData, stanceScale } from './state-data';
 import StatePage from './pages/StatePage'; 
 
@@ -104,6 +105,8 @@ function App() {
                   <Route path="/state/:stateName" element={<StatePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
                   <Route path="/profile" element={<ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
                   <Route path="/profile/:userId" element={<ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
+                  <Route path="/party" element={<PartyPage currentUser={currentUser} />} />
+                  <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </main>

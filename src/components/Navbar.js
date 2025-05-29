@@ -1,7 +1,7 @@
 // frontend/src/components/Navbar.js
 import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon } from 'lucide-react';
+import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon, Users } from 'lucide-react';
 
 export default function Navbar({ currentUser, logout, gameDate }) {
   const navLinkStyles = ({ isActive }) => ({
@@ -35,6 +35,9 @@ export default function Navbar({ currentUser, logout, gameDate }) {
             )}
             <NavLink to="/map" style={navLinkStyles} className="text-sm sm:text-base">USA Map</NavLink>
             {currentUser && <NavLink to={`/profile/${currentUser.id}`} style={navLinkStyles} className="text-sm sm:text-base">Profile</NavLink>}
+            {currentUser && <NavLink to="/party" style={navLinkStyles} className="flex items-center text-sm sm:text-base">
+                <Users size={14} className="mr-1 hidden sm:inline-block"/> Party
+            </NavLink>}
             </nav>
         </div>
 
