@@ -9,7 +9,7 @@ import {
     Check, AlertTriangle, Lock, Settings as SettingsIcon, UploadCloud,
     Trash2, UserCircle2
 } from 'lucide-react';
-import PasswordChangeModal from '../components/PasswordChangeModal';
+import SettingsModal from '../components/SettingsModal';
 import ActiveCampaignsCard from '../components/ActiveCampaignsCard';
 
 // Helper to get stance label
@@ -527,12 +527,14 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 </div>
             </div>
             {isOwnProfile && showPasswordModal && (
-                <PasswordChangeModal
+                <SettingsModal
                     isOpen={showPasswordModal}
                     onClose={() => { setShowPasswordModal(false); clearMessages(); }}
                     onSuccess={(message) => { setSuccess(message); setShowPasswordModal(false); }}
                     onError={(message) => { setError(message); }}
-                    userEmail={currentUser?.email} // Pass user's email to the modal
+                    userEmail={currentUser?.email}
+                    currentUser={currentUser}
+                    setCurrentUser={setCurrentUser}
                 />
             )}
             <div className="max-w-4xl mx-auto mt-6">

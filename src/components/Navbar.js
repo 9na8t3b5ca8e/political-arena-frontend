@@ -10,13 +10,6 @@ export default function Navbar({ currentUser, logout, gameDate }) {
     whiteSpace: 'nowrap',
   });
 
-  const formatGameDate = (date) => {
-    if (!date || !date.year || !date.month || !date.day) return "Loading...";
-    const monthNames = ["January", "February", "March", "April", "May", "June",
-                        "July", "August", "September", "October", "November", "December"];
-    return `${monthNames[date.month - 1]} ${date.day}, ${date.year}`;
-  };
-
   return (
     <header className="bg-gray-800 p-3 sm:p-4 rounded-lg mb-6 shadow-lg">
       <div className="flex flex-col sm:flex-row justify-between items-center ">
@@ -52,9 +45,9 @@ export default function Navbar({ currentUser, logout, gameDate }) {
         <div className="flex flex-col items-center sm:items-end w-full sm:w-auto">
             {currentUser && (
             <>
-                {gameDate && (
-                <div className="text-xs text-amber-300 mb-1.5 sm:mb-1 flex items-center whitespace-nowrap" title="Current In-Game Date">
-                    <CalendarDays size={14} className="inline-block mr-1" /> GAME DATE: {formatGameDate(gameDate)}
+                {gameDate && gameDate.year && (
+                <div className="text-xs text-amber-300 mb-1.5 sm:mb-1 flex items-center whitespace-nowrap" title="Current Game Year">
+                    <CalendarDays size={14} className="inline-block mr-1" /> GAME YEAR: {gameDate.year}
                 </div>
                 )}
                 <div className="flex items-center space-x-2 sm:space-x-3">

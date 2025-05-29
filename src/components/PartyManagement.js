@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiCall } from '../api';
 import PlayerDisplayName from './PlayerDisplayName'; // Import PlayerDisplayName
 import StanceDisplay from './StanceDisplay'; // Import StanceDisplay
+import { formatDateOnly, formatLongDate } from '../utils/dateUtils'; // Import date utilities
 // import { useAuth } from '../contexts/AuthContext'; // Assuming AuthContext provides currentUser
 
 const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser prop
@@ -15,7 +16,6 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
     const [targetMemberId, setTargetMemberId] = useState('');
     const [targetMemberFirstName, setTargetMemberFirstName] = useState('');
     const [targetMemberLastName, setTargetMemberLastName] = useState('');
-    const [platform, setPlatform] = useState('');
     const [selectedPosition, setSelectedPosition] = useState('');
 
     // State for leadership voting
@@ -50,12 +50,12 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 const electionCycleStartDate = new Date(currentDate);
                 electionCycleStartDate.setDate(currentDate.getDate() + difference);
                 electionCycleStartDate.setHours(0,0,0,0);
-                setElectionCycleDateDisplay(electionCycleStartDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }));
+                setElectionCycleDateDisplay(formatDateOnly(electionCycleStartDate));
                 // Calculate end of cycle (Sunday 11:59 PM)
                 const electionCycleEndDate = new Date(electionCycleStartDate);
                 electionCycleEndDate.setDate(electionCycleStartDate.getDate() + 6);
                 electionCycleEndDate.setHours(23,59,59,999);
-                setElectionCycleEndDisplay(electionCycleEndDate.toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }));
+                setElectionCycleEndDisplay(formatLongDate(electionCycleEndDate));
 
             } catch (err) {
                 setError('Failed to load party data');
@@ -99,12 +99,10 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 method: 'POST',
                 body: JSON.stringify({
                     partyId,
-                    position: selectedPosition,
-                    platform
+                    position: selectedPosition
                 })
             });
             // Reset form
-            setPlatform('');
             setSelectedPosition('');
             // Refresh candidates
             const candidatesRes = await apiCall(`/party/${partyId}/candidates`);
@@ -117,17 +115,13 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
     const handleLeadershipVote = async (e) => { // Modified to take event
         e.preventDefault(); // Prevent default form submission
         try {
-            if (!selectedChairVote || !selectedViceChairVote || !selectedTreasurerVote) {
-                setError('Please select a candidate for each position.');
-                return;
-            }
             await apiCall('/party/leadership/vote', {
                 method: 'POST',
                 body: JSON.stringify({
                     partyId,
-                    chairVoteId: parseInt(selectedChairVote),
-                    viceChairVoteId: parseInt(selectedViceChairVote),
-                    treasurerVoteId: parseInt(selectedTreasurerVote)
+                    chairVoteId: selectedChairVote ? parseInt(selectedChairVote) : null,
+                    viceChairVoteId: selectedViceChairVote ? parseInt(selectedViceChairVote) : null,
+                    treasurerVoteId: selectedTreasurerVote ? parseInt(selectedTreasurerVote) : null
                 })
             });
             // Reset selections
@@ -300,19 +294,6 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                             <option value="treasurer">Treasurer</option>
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                            Platform
-                        </label>
-                        <textarea
-                            value={platform}
-                            onChange={(e) => setPlatform(e.target.value)}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            rows="4"
-                            placeholder="Describe your vision for the party, key goals, and what you will bring to this leadership role."
-                            required
-                        />
-                    </div>
                     <button
                         type="submit"
                         className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
@@ -350,6 +331,17 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                                         <p className="text-sm text-gray-500">No candidates for this position.</p>
                                     ) : (
                                         <div className="space-y-2">
+                                            <label className="flex items-center space-x-2 p-2 border rounded-md hover:bg-gray-100 cursor-pointer">
+                                                <input 
+                                                    type="radio" 
+                                                    name={position} 
+                                                    value="" 
+                                                    checked={currentVote === ""} 
+                                                    onChange={(e) => setCurrentVote(e.target.value)}
+                                                    className="form-radio h-4 w-4 text-blue-600"
+                                                />
+                                                <span className="text-gray-600 italic">Abstain (no vote)</span>
+                                            </label>
                                             {positionCandidates.map((candidate) => (
                                                 <label key={candidate.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-gray-100 cursor-pointer">
                                                     <input 
@@ -369,7 +361,6 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                                                         picSize="h-8 w-8"
                                                         textClass="text-gray-800"
                                                     />
-                                                    <span className="text-xs text-gray-600 truncate">({candidate.platform.substring(0,50)}{candidate.platform.length > 50 ? '...' : ''})</span>
                                                 </label>
                                             ))}
                                         </div>
@@ -377,59 +368,27 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                                 </div>
                             );
                         })}
-                        <button 
-                            type="submit" 
-                            className="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors disabled:bg-gray-400"
-                            disabled={candidates.length === 0} // Disable if no candidates at all
-                        >
-                            Submit Votes
-                        </button>
+                        <div className="flex space-x-4">
+                            <button 
+                                type="button" 
+                                onClick={() => {
+                                    setSelectedChairVote('');
+                                    setSelectedViceChairVote('');
+                                    setSelectedTreasurerVote('');
+                                }}
+                                className="flex-1 bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600 transition-colors"
+                            >
+                                Clear All Votes
+                            </button>
+                            <button 
+                                type="submit" 
+                                className="flex-1 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors disabled:bg-gray-400"
+                                disabled={candidates.length === 0} // Disable if no candidates at all
+                            >
+                                Submit Votes
+                            </button>
+                        </div>
                     </form>
-                )}
-            </div>
-
-            {/* Current Candidates */}
-            <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-semibold mb-4">Current Candidates</h3>
-                {candidates.length === 0 ? (
-                    <p className="text-gray-500">No current candidates.</p>
-                ) : (
-                    <div className="space-y-4">
-                        {['chair', 'vice_chair', 'treasurer'].map((position) => {
-                            const positionCandidates = candidates.filter(
-                                (c) => c.position_contested === position
-                            );
-                            return (
-                                <div key={position} className="border-t pt-4 first:border-t-0 first:pt-0">
-                                    <h4 className="font-semibold capitalize mb-2">
-                                        {position.replace('_', ' ')} Candidates
-                                    </h4>
-                                    {positionCandidates.length === 0 ? (
-                                        <p className="text-gray-500">No candidates for this position.</p>
-                                    ) : (
-                                        <div className="grid gap-4 md:grid-cols-2">
-                                            {positionCandidates.map((candidate) => (
-                                                <div key={candidate.id} className="border rounded-lg p-4 text-gray-800">
-                                                    <PlayerDisplayName 
-                                                        userId={candidate.user_id} 
-                                                        firstName={candidate.first_name} 
-                                                        lastName={candidate.last_name} 
-                                                        profilePictureUrl={candidate.profile_picture_url}
-                                                        includePic={true}
-                                                        picSize="h-8 w-8"
-                                                        textClass="font-semibold"
-                                                    />
-                                                    <p className="text-sm text-gray-600 mt-2">
-                                                        {candidate.platform}
-                                                    </p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
                 )}
             </div>
         </div>
