@@ -12,7 +12,7 @@ import StatePage from './pages/StatePage';
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [gameDate, setGameDate] = useState(null); // << NEW STATE FOR GAME DATE
+  const [gameDate, setGameDate] = useState(null);
 
   const loadUserProfile = useCallback(async () => {
     const token = localStorage.getItem('authToken');
@@ -21,9 +21,11 @@ function App() {
       return;
     }
     try {
-      const profile = await apiCall('/profile');
+      // NOTE: This API call was failing before. It should now work with the fixed routes.
+      const profile = await apiCall('/auth/profile'); 
       setCurrentUser(profile);
     } catch (error) {
+      console.error("Failed to load profile, logging out.", error);
       localStorage.removeItem('authToken');
       setCurrentUser(null);
     } finally {
@@ -35,39 +37,40 @@ function App() {
     loadUserProfile();
   }, [loadUserProfile]);
   
-  // << NEW useEffect to fetch game date periodically >>
   useEffect(() => {
-    if (currentUser) { // Only fetch if user is logged in
+    if (currentUser) {
       const fetchGameDate = async () => {
         try {
           const dateData = await apiCall('/game/date');
-          console.log("Fetched Game Date:", dateData); // DEBUG LOG
           setGameDate(dateData);
         } catch (error) {
           console.error("Failed to fetch game date:", error);
-          // Optionally set an error state or handle silently if this is not critical
         }
       };
-      fetchGameDate(); // Initial fetch
-      const intervalId = setInterval(fetchGameDate, 60000); // Fetch every minute
-      return () => clearInterval(intervalId); // Cleanup interval on component unmount or if currentUser changes
+      fetchGameDate();
+      const intervalId = setInterval(fetchGameDate, 60000);
+      return () => clearInterval(intervalId);
     } else {
-      setGameDate(null); // Clear game date if logged out
+      setGameDate(null);
     }
-  }, [currentUser]); // Re-run if currentUser changes (e.g., on login/logout)
+  }, [currentUser]);
 
   const logout = () => {
     localStorage.removeItem('authToken');
     setCurrentUser(null);
-    // gameDate will be cleared by the useEffect above
   };
 
   const handleSuccessfulAuth = () => {
     setLoading(true);
-    loadUserProfile(); // This will trigger the gameDate useEffect once currentUser is set
+    loadUserProfile(); 
   }
 
-  if (loading && currentUser === null) { // Refined loading condition to prevent flash of auth screen
+  // A simple reload on login success can also work to simplify state management
+  const handleLoginSuccess = () => {
+      window.location.href = '/';
+  }
+
+  if (loading && !localStorage.getItem('authToken')) {
     return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading Application...</div>;
   }
 
@@ -77,9 +80,8 @@ function App() {
         <div className="max-w-7xl mx-auto">
           {currentUser ? (
             <>
-              {/* << PASS gameDate TO NAVBAR >> */}
               <Navbar currentUser={currentUser} logout={logout} gameDate={gameDate} /> 
-              <main className="mt-6"> {/* Add some margin top for content below navbar */}
+              <main className="mt-6">
                 <Routes>
                   <Route path="/" element={<HomePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
                   <Route path="/map" element={<MapPage />} />
@@ -92,7 +94,7 @@ function App() {
             </>
           ) : (
             <Routes>
-                <Route path="*" element={<AuthRouter onAuthSuccess={handleSuccessfulAuth} />} />
+                <Route path="*" element={<AuthRouter onAuthSuccess={handleSuccessfulAuth} onLoginSuccess={handleLoginSuccess}/>} />
             </Routes>
           )}
         </div>
@@ -101,17 +103,17 @@ function App() {
   );
 }
 
-function AuthRouter({ onAuthSuccess }) {
+function AuthRouter({ onAuthSuccess, onLoginSuccess }) {
     const [authAction, setAuthAction] = useState('login'); 
     const [profileDataForSetup, setProfileDataForSetup] = useState(null);
 
     if(profileDataForSetup) {
         return <ProfileSetup currentUser={profileDataForSetup} onSetupComplete={onAuthSuccess} />
     }
-    return <AuthScreen action={authAction} setAction={setAuthAction} setProfileDataForSetup={setProfileDataForSetup} />
+    return <AuthScreen action={authAction} setAction={setAuthAction} setProfileDataForSetup={setProfileDataForSetup} onLoginSuccess={onLoginSuccess} />
 }
 
-const AuthScreen = ({ action, setAction, setProfileDataForSetup }) => {
+const AuthScreen = ({ action, setAction, setProfileDataForSetup, onLoginSuccess }) => {
     const [form, setForm] = useState({});
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -124,14 +126,10 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup }) => {
             localStorage.setItem('authToken', response.token);
             
             if (action === 'register') {
-                const profile = await apiCall('/auth/profile'); // Fetch the newly created profile
-                setProfileDataForSetup(profile); // Pass it to AuthRouter to trigger ProfileSetup
+                const profile = await apiCall('/auth/profile');
+                setProfileDataForSetup(profile);
             } else { 
-                // For login, App.js's loadUserProfile will be called by onAuthSuccess,
-                // which will set currentUser and re-render App to show the main layout.
-                // We can directly call onAuthSuccess from App if passed down, or let App.js handle it.
-                // For simplicity, we let App.js handle it via its useEffect on token change.
-                window.location.reload(); // Simple way to trigger App.js reload and profile fetch
+                onLoginSuccess();
             }
         } catch (err) { setError(err.message); } 
         finally { setLoading(false); }
@@ -153,6 +151,17 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup }) => {
                 {isRegister && <input name="email" type="email" placeholder="Email" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>}
                 <input name="password" type="password" placeholder="Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
                 {isRegister && <input name="confirmPassword" type="password" placeholder="Confirm Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>}
+                
+                {/* --- NEW FIELDS ADDED HERE --- */}
+                {isRegister && (<div className="grid grid-cols-2 gap-4">
+                    <input name="gender" placeholder="Gender" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
+                    <input name="age" type="number" placeholder="Age" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
+                </div>)}
+                {isRegister && (<div className="grid grid-cols-2 gap-4">
+                    <input name="race" placeholder="Race" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
+                    <input name="religion" placeholder="Religion" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
+                </div>)}
+                
                 <button type="submit" disabled={loading} className="w-full bg-blue-600 p-2 rounded hover:bg-blue-700 font-bold disabled:bg-gray-500">{loading ? "Loading..." : (isRegister ? "Register" : "Login")}</button>
                 <p className="text-center text-sm text-gray-400">
                     {isRegister ? "Already have an account?" : "No account?"}
@@ -163,6 +172,7 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup }) => {
     );
 };
 
+// NOTE: The ProfileSetup component remains unchanged
 const ProfileSetup = ({ currentUser, onSetupComplete }) => {
     const [profileData, setProfileData] = useState({
         ...currentUser,
@@ -191,8 +201,8 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
     };
 
     const alignment = calculateStateAlignment(
-        profileData.economic_stance, // Already number from state or default
-        profileData.social_stance, // Already number from state or default
+        profileData.economic_stance,
+        profileData.social_stance,
         profileData.home_state
     );
 
@@ -211,7 +221,7 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
         
         try {
             setError('');
-            await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify({ [apiFieldKey]: valToUpdate }) });
+            await apiCall('/profile', { method: 'PUT', body: JSON.stringify({ [apiFieldKey]: valToUpdate }) });
         } catch (err) {
             setError(`Failed to update ${localStateFieldKey}: ${err.message}`);
         }
