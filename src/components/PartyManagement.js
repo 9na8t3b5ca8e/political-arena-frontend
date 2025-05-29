@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/formatters';
+import { apiCall } from '../api';
 
 const PartyManagement = ({ partyId }) => {
     const { user } = useAuth();
@@ -19,11 +19,11 @@ const PartyManagement = ({ partyId }) => {
         const fetchData = async () => {
             try {
                 const [partyRes, candidatesRes] = await Promise.all([
-                    axios.get(`/api/party/${partyId}`),
-                    axios.get(`/api/party/${partyId}/candidates`)
+                    apiCall(`/party/${partyId}`),
+                    apiCall(`/party/${partyId}/candidates`)
                 ]);
-                setPartyDetails(partyRes.data);
-                setCandidates(candidatesRes.data);
+                setPartyDetails(partyRes);
+                setCandidates(candidatesRes);
                 setLoading(false);
             } catch (err) {
                 setError('Failed to load party data');
@@ -37,56 +37,65 @@ const PartyManagement = ({ partyId }) => {
     const handleFundingProposal = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('/api/party/funding/propose', {
-                partyId,
-                targetUserId: targetMemberId,
-                amount: parseInt(fundingAmount),
-                reason: fundingReason
+            await apiCall('/party/funding/propose', {
+                method: 'POST',
+                body: JSON.stringify({
+                    partyId,
+                    targetUserId: targetMemberId,
+                    amount: parseInt(fundingAmount),
+                    reason: fundingReason
+                })
             });
             // Reset form
             setFundingAmount('');
             setFundingReason('');
             setTargetMemberId('');
             // Refresh party details
-            const partyRes = await axios.get(`/api/party/${partyId}`);
-            setPartyDetails(partyRes.data);
+            const partyRes = await apiCall(`/party/${partyId}`);
+            setPartyDetails(partyRes);
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to submit funding proposal');
+            setError(err.message || 'Failed to submit funding proposal');
         }
     };
 
     const handleLeadershipCandidacy = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('/api/party/leadership/run', {
-                partyId,
-                position: selectedPosition,
-                platform
+            await apiCall('/party/leadership/run', {
+                method: 'POST',
+                body: JSON.stringify({
+                    partyId,
+                    position: selectedPosition,
+                    platform
+                })
             });
             // Reset form
             setPlatform('');
             setSelectedPosition('');
             // Refresh candidates
-            const candidatesRes = await axios.get(`/api/party/${partyId}/candidates`);
-            setCandidates(candidatesRes.data);
+            const candidatesRes = await apiCall(`/party/${partyId}/candidates`);
+            setCandidates(candidatesRes);
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to submit candidacy');
+            setError(err.message || 'Failed to submit candidacy');
         }
     };
 
     const handleLeadershipVote = async (chairId, viceChairId, treasurerId) => {
         try {
-            await axios.post('/api/party/leadership/vote', {
-                partyId,
-                chairVoteId: chairId,
-                viceChairVoteId: viceChairId,
-                treasurerVoteId: treasurerId
+            await apiCall('/party/leadership/vote', {
+                method: 'POST',
+                body: JSON.stringify({
+                    partyId,
+                    chairVoteId: chairId,
+                    viceChairVoteId: viceChairId,
+                    treasurerVoteId: treasurerId
+                })
             });
             // Refresh party details
-            const partyRes = await axios.get(`/api/party/${partyId}`);
-            setPartyDetails(partyRes.data);
+            const partyRes = await apiCall(`/party/${partyId}`);
+            setPartyDetails(partyRes);
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to submit vote');
+            setError(err.message || 'Failed to submit vote');
         }
     };
 
