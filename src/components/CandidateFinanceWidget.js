@@ -27,6 +27,18 @@ const SpendForm = ({ candidate, currentUser, setCurrentUser, onClose, setSuccess
         setSuccess('');
         setIsProcessing(true);
         try {
+            // --- DEBUG LOGS ADDED HERE ---
+            console.log("SpendForm (Frontend) - Attempting to spend funds.");
+            console.log("SpendForm (Frontend) - Candidate object:", JSON.stringify(candidate, null, 2));
+            console.log("SpendForm (Frontend) - candidate.election_candidate_id to be sent:", candidate?.election_candidate_id);
+            console.log("SpendForm (Frontend) - candidate.user_id (owner of the candidacy):", candidate?.user_id);
+            console.log("SpendForm (Frontend) - currentUser.id (logged-in user):", currentUser?.id);
+            // --- END OF DEBUG LOGS ---
+
+            if (!candidate?.election_candidate_id) {
+                throw new Error("Frontend Error: election_candidate_id is missing from candidate object before API call.");
+            }
+
             const res = await spendCampaignFunds({
                 candidateId: candidate.election_candidate_id,
                 amount: parseFloat(amount),
@@ -36,7 +48,8 @@ const SpendForm = ({ candidate, currentUser, setCurrentUser, onClose, setSuccess
             setSuccess('Expenditure recorded successfully!');
             onClose();
         } catch (err) {
-            setError(err.message);
+            console.error("SpendForm (Frontend) - Error during spendCampaignFunds:", err);
+            setError(err.message || "An unknown error occurred during expenditure.");
         } finally {
             setIsProcessing(false);
         }
@@ -64,10 +77,10 @@ const SpendForm = ({ candidate, currentUser, setCurrentUser, onClose, setSuccess
     );
 };
 
-// Donate Form
+// Donate Form (No changes needed for this specific bug, but kept for completeness of the file)
 const DonateForm = ({ candidate, currentUser, setCurrentUser, onClose, setSuccess, setError }) => {
     const [amount, setAmount] = useState('');
-    const [source, setSource] = useState('individual'); // Add PAC logic later
+    const [source, setSource] = useState('individual');
     const [isProcessing, setIsProcessing] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -81,8 +94,11 @@ const DonateForm = ({ candidate, currentUser, setCurrentUser, onClose, setSucces
                 amount: parseFloat(amount),
                 source,
             });
+            // If donating to oneself, update campaign funds in currentUser
             if (candidate.user_id === currentUser.id) {
-                setCurrentUser(prev => ({ ...prev, campaign_funds: res.newCampaignFunds }));
+                 // This logic might need refinement if donateToCandidate already returns the donor's new stats
+                const updatedProfile = await apiCall('/auth/profile'); // Re-fetch profile to get latest funds
+                setCurrentUser(updatedProfile);
             }
             setSuccess(`Successfully donated $${amount} to ${candidate.first_name} ${candidate.last_name}.`);
             onClose();
@@ -100,6 +116,15 @@ const DonateForm = ({ candidate, currentUser, setCurrentUser, onClose, setSucces
                 <label className="block text-sm font-medium text-gray-300">Amount</label>
                 <input type="number" value={amount} onChange={e => setAmount(e.target.value)} required min="1" className="w-full bg-gray-900 p-2 rounded mt-1" />
             </div>
+            {/* Example for source selection if PACs are implemented for donation
+            <div>
+                <label className="block text-sm font-medium text-gray-300">Source</label>
+                <select value={source} onChange={e => setSource(e.target.value)} className="w-full bg-gray-900 p-2 rounded mt-1">
+                    <option value="individual">Individual</option>
+                    <option value="pac">Your PAC (if applicable)</option>
+                </select>
+            </div>
+            */}
             <div className="flex justify-end gap-2">
                 <button type="button" onClick={onClose} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
                 <button type="submit" disabled={isProcessing} className="bg-teal-600 px-4 py-2 rounded disabled:bg-gray-500">
@@ -122,7 +147,7 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
 
     const fetchLedger = useCallback(async () => {
         if (!candidate?.election_candidate_id) {
-            setError("Candidate ID is missing.");
+            setError("Candidate ID is missing for ledger."); // Differentiated error message
             setLoading(false);
             return;
         }
@@ -152,7 +177,8 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
         return <div className="p-4 bg-gray-700/50 rounded-lg mt-2 text-center text-gray-400"><Loader className="animate-spin inline-block mr-2" />Loading financial data...</div>;
     }
 
-    if (error) {
+    // This error display is for ledger loading. The spend/donate forms handle their own errors.
+    if (error && !showSpendModal && !showDonateModal) {
          return <div className="p-4 bg-red-900/50 border border-red-700 rounded-lg mt-2 text-center text-red-300">
             <AlertTriangle className="inline-block mr-2" /> {error}
         </div>;
@@ -165,7 +191,10 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
                 Financials for {candidate.first_name} {candidate.last_name}
             </h3>
             
-            {success && <div className="bg-green-500/20 text-green-300 p-2 rounded text-sm">{success}</div>}
+            {success && !showSpendModal && !showDonateModal && <div className="bg-green-500/20 text-green-300 p-2 rounded text-sm">{success}</div>}
+             {/* Display error from spend/donate modals if they are not showing it themselves */}
+            {error && (showSpendModal || showDonateModal) && <div className="bg-red-500/20 text-red-300 p-2 rounded text-sm mb-2">{error}</div>}
+
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                  <div className="bg-gray-800 p-3 rounded-lg text-center">
@@ -173,9 +202,12 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
                     <p className="text-2xl font-bold text-green-400">${candidate.campaign_funds?.toLocaleString()}</p>
                 </div>
                 <div className="md:col-span-2 flex justify-center md:justify-end gap-2">
-                    <button onClick={() => { clearMessages(); setShowDonateModal(true); }} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg text-sm font-semibold">
-                        <Landmark size={16} /> Donate
-                    </button>
+                    {/* Prevent donating to oneself from this UI, or handle it carefully */}
+                    {candidate.user_id !== currentUser.id && (
+                        <button onClick={() => { clearMessages(); setShowDonateModal(true); }} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 px-4 py-2 rounded-lg text-sm font-semibold">
+                            <Landmark size={16} /> Donate
+                        </button>
+                    )}
                     {isOwner && (
                          <button onClick={() => { clearMessages(); setShowSpendModal(true); }} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold">
                             <Send size={16} /> Spend Funds
@@ -217,8 +249,8 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
             </div>
 
             {/* Modals */}
-            {showSpendModal && isOwner && <Modal onClose={() => setShowSpendModal(false)}><SpendForm {...{ candidate, currentUser, setCurrentUser, setSuccess, setError }} onClose={() => setShowSpendModal(false)} /></Modal>}
-            {showDonateModal && <Modal onClose={() => setShowDonateModal(false)}><DonateForm {...{ candidate, currentUser, setCurrentUser, setSuccess, setError }} onClose={() => setShowDonateModal(false)} /></Modal>}
+            {showSpendModal && isOwner && <Modal onClose={() => setShowSpendModal(false)}><SpendForm candidate={candidate} currentUser={currentUser} setCurrentUser={setCurrentUser} setSuccess={setSuccess} setError={setError} onClose={() => {setShowSpendModal(false); fetchLedger(); /* Refresh ledger after spend */}} /></Modal>}
+            {showDonateModal && <Modal onClose={() => setShowDonateModal(false)}><DonateForm candidate={candidate} currentUser={currentUser} setCurrentUser={setCurrentUser} setSuccess={setSuccess} setError={setError} onClose={() => {setShowDonateModal(false); fetchLedger(); /* Refresh ledger after donation */}} /></Modal>}
         </div>
     );
 }
