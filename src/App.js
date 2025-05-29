@@ -9,7 +9,7 @@ import ProfilePage from './pages/ProfilePage';
 import { allStates, stateData, stanceScale } from './state-data';
 import StatePage from './pages/StatePage'; 
 
-// --- REGISTRATION DROPDOWN OPTIONS (from ProfilePage.js) ---
+// --- REGISTRATION DROPDOWN OPTIONS (from ProfilePage.js, now used in ProfileSetup) ---
 const genderOptions = ["Male", "Female", "Non-binary", "Other", "Prefer not to say"];
 const raceOptions = [
     "White", "Black or African American", "Asian", "American Indian or Alaska Native",
@@ -34,7 +34,7 @@ function App() {
       return;
     }
     try {
-      const profile = await apiCall('/auth/profile');
+      const profile = await apiCall('/auth/profile'); 
       setCurrentUser(profile);
     } catch (error) {
       console.error("Failed to load profile, logging out.", error);
@@ -97,6 +97,7 @@ function App() {
                   <Route path="/" element={<HomePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
                   <Route path="/map" element={<MapPage />} />
                   <Route path="/state/:stateName" element={<StatePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
+                  {/* Pass setCurrentUser to ProfileSetup if it's also responsible for updating the global currentUser state */}
                   <Route path="/profile" element={<ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
                   <Route path="/profile/:userId" element={<ProfilePage currentUser={currentUser} setCurrentUser={setCurrentUser} />} />
                   <Route path="*" element={<Navigate to="/" />} />
@@ -105,7 +106,8 @@ function App() {
             </>
           ) : (
             <Routes>
-                <Route path="*" element={<AuthRouter onAuthSuccess={handleSuccessfulAuth} onLoginSuccess={handleLoginSuccess}/>} />
+                {/* Pass setCurrentUser to onAuthSuccess and ProfileSetup if needed for global updates */}
+                <Route path="*" element={<AuthRouter onAuthSuccess={handleSuccessfulAuth} onLoginSuccess={handleLoginSuccess} setCurrentUser={setCurrentUser} />} />
             </Routes>
           )}
         </div>
@@ -114,21 +116,19 @@ function App() {
   );
 }
 
-function AuthRouter({ onAuthSuccess, onLoginSuccess }) {
+function AuthRouter({ onAuthSuccess, onLoginSuccess, setCurrentUser }) {
     const [authAction, setAuthAction] = useState('login'); 
     const [profileDataForSetup, setProfileDataForSetup] = useState(null);
 
     if(profileDataForSetup) {
-        return <ProfileSetup currentUser={profileDataForSetup} onSetupComplete={onAuthSuccess} />
+        // Pass setCurrentUser to ProfileSetup
+        return <ProfileSetup currentUser={profileDataForSetup} onSetupComplete={onAuthSuccess} setCurrentUser={setCurrentUser} />
     }
     return <AuthScreen action={authAction} setAction={setAuthAction} setProfileDataForSetup={setProfileDataForSetup} onLoginSuccess={onLoginSuccess} />
 }
 
 const AuthScreen = ({ action, setAction, setProfileDataForSetup, onLoginSuccess }) => {
-    const [form, setForm] = useState({
-        // Set default empty strings for dropdowns to prevent uncontrolled component warnings
-        gender: '', race: '', religion: '', age: ''
-    });
+    const [form, setForm] = useState({}); // No need for gender, race, etc. defaults here now
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -136,14 +136,13 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup, onLoginSuccess 
         e.preventDefault(); setLoading(true); setError('');
         try {
             if (action === 'register' && form.password !== form.confirmPassword) throw new Error("Passwords do not match.");
-            if (action === 'register' && (!form.gender || !form.race || !form.religion || !form.age)) throw new Error("Please complete all profile fields.");
-
+            
             const response = await apiCall(`/auth/${action}`, { method: 'POST', body: JSON.stringify(form) });
             localStorage.setItem('authToken', response.token);
             
             if (action === 'register') {
-                const profile = await apiCall('/auth/profile');
-                setProfileDataForSetup(profile);
+                const profile = await apiCall('/auth/profile'); // Fetches initial profile (with name, user_id etc.)
+                setProfileDataForSetup(profile); // This profile will be passed to ProfileSetup
             } else { 
                 onLoginSuccess();
             }
@@ -168,29 +167,7 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup, onLoginSuccess 
                 <input name="password" type="password" placeholder="Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
                 {isRegister && <input name="confirmPassword" type="password" placeholder="Confirm Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>}
                 
-                {/* --- NEW DROPDOWN FIELDS ADDED HERE --- */}
-                {isRegister && (
-                    <div className="pt-2 border-t border-gray-700 space-y-4">
-                         <div className="grid grid-cols-2 gap-4">
-                            <select name="gender" value={form.gender} onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full">
-                                <option value="">Select Gender</option>
-                                {genderOptions.map(g => <option key={g} value={g}>{g}</option>)}
-                            </select>
-                             <select name="age" value={form.age} onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full">
-                                <option value="">Select Age</option>
-                                {ageOptions.map(a => <option key={a} value={a}>{a}</option>)}
-                            </select>
-                        </div>
-                        <select name="race" value={form.race} onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full">
-                            <option value="">Select Race/Ethnicity</option>
-                            {raceOptions.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                        <select name="religion" value={form.religion} onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full">
-                            <option value="">Select Religion</option>
-                            {religionOptions.map(r => <option key={r} value={r}>{r}</option>)}
-                        </select>
-                    </div>
-                )}
+                {/* --- GENDER, RACE, RELIGION, AGE FIELDS REMOVED FROM HERE --- */}
                 
                 <button type="submit" disabled={loading} className="w-full bg-blue-600 p-2 rounded hover:bg-blue-700 font-bold disabled:bg-gray-500">{loading ? "Loading..." : (isRegister ? "Register" : "Login")}</button>
                 <p className="text-center text-sm text-gray-400">
@@ -202,14 +179,19 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup, onLoginSuccess 
     );
 };
 
-const ProfileSetup = ({ currentUser, onSetupComplete }) => {
+const ProfileSetup = ({ currentUser, onSetupComplete, setCurrentUser }) => {
     const [profileData, setProfileData] = useState({
         ...currentUser,
         economic_stance: currentUser.economic_stance || 4,
         social_stance: currentUser.social_stance || 4,
         party: currentUser.party || '',
         home_state: currentUser.home_state || '',
-        bio: currentUser.bio || ''
+        bio: currentUser.bio || '',
+        // --- NEW FIELDS INITIALIZED HERE ---
+        gender: currentUser.gender || '',
+        race: currentUser.race || '',
+        religion: currentUser.religion || '',
+        age: currentUser.age || '',
     });
     const [error, setError] = useState('');
 
@@ -235,35 +217,39 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
         profileData.home_state
     );
     
-    // In ProfileSetup, the API call should go to /profile, not /auth/profile
     const handleUpdate = async (fieldKey, value) => {
-        const localStateFieldKey = fieldKey; 
-        let apiFieldKey = fieldKey;
-        if (fieldKey === 'economic_stance') apiFieldKey = 'economicStance';
-        if (fieldKey === 'social_stance') apiFieldKey = 'socialStance';
-        if (fieldKey === 'home_state') apiFieldKey = 'homeState';
-
-        const valToUpdate = (localStateFieldKey === 'economic_stance' || localStateFieldKey === 'social_stance') 
-                            ? parseInt(value, 10) 
-                            : value;
+        // Make sure to handle age as a number for the API if it's sent
+        const valToUpdate = fieldKey === 'age' ? parseInt(value, 10) || null : value;
         
-        setProfileData(prev => ({ ...prev, [localStateFieldKey]: valToUpdate }));
+        // Optimistically update local state
+        setProfileData(prev => ({ ...prev, [fieldKey]: valToUpdate }));
         
         try {
             setError('');
-            // Use the generic /profile endpoint for updates after the initial setup
-            await apiCall('/profile', { method: 'PUT', body: JSON.stringify({ [apiFieldKey]: valToUpdate }) });
+            // API call to update the profile; backend should handle these fields
+            const updatedProfile = await apiCall('/profile', { 
+                method: 'PUT', 
+                body: JSON.stringify({ [fieldKey]: valToUpdate }) 
+            });
+            // Update the global currentUser state if setCurrentUser is provided
+            if (setCurrentUser && updatedProfile) {
+                setCurrentUser(prev => ({ ...prev, ...updatedProfile }));
+            }
         } catch (err) {
-            setError(`Failed to update ${localStateFieldKey}: ${err.message}`);
+            setError(`Failed to update ${fieldKey}: ${err.message}`);
+            // Optionally revert optimistic update here
         }
     };
 
-    const finishSetup = () => {
+    const finishSetup = async () => {
         setError('');
-        if (!profileData.party || !profileData.home_state) {
-            alert("Please select a party and a home state to continue.");
+        // Check all required fields, including the new ones
+        if (!profileData.party || !profileData.home_state || !profileData.gender || !profileData.race || !profileData.religion || !profileData.age) {
+            alert("Please select your party, home state, and complete all biographical fields (Gender, Age, Race, Religion) to continue.");
             return;
         }
+        // All changes are already sent via handleUpdate,
+        // so onSetupComplete can just proceed.
         onSetupComplete();
     };
 
@@ -271,46 +257,64 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
         <div className="max-w-2xl mx-auto mt-10 md:mt-20 p-6 bg-gray-800 rounded-lg space-y-6 shadow-xl">
             <h2 className="text-2xl font-bold text-center text-blue-300">Create Your Political Persona</h2>
             {error && <p className="bg-red-500/20 text-red-300 p-3 rounded text-sm">{error}</p>}
+            
+            {/* Existing Party and Home State */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label className="block mb-1 text-sm font-bold text-gray-300">Political Party</label>
-                    <select 
-                        value={profileData.party} 
-                        onChange={(e) => handleUpdate('party', e.target.value)} 
-                        className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500"
-                    >
+                    <select value={profileData.party} onChange={(e) => handleUpdate('party', e.target.value)} required className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500">
                         <option value="">Select Party</option><option value="Democrat">Democrat</option><option value="Republican">Republican</option><option value="Independent">Independent</option>
                     </select>
                 </div>
                  <div>
                     <label className="block mb-1 text-sm font-bold text-gray-300">Home State</label>
-                    <select 
-                        value={profileData.home_state} 
-                        onChange={(e) => handleUpdate('home_state', e.target.value)} 
-                        className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500"
-                    >
+                    <select value={profileData.home_state} onChange={(e) => handleUpdate('home_state', e.target.value)} required className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500">
                         <option value="">Select State</option>
                         {allStates.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
             </div>
+
+            {/* --- NEW DROPDOWN FIELDS ADDED HERE --- */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label className="block mb-1 text-sm font-bold text-gray-300">Gender</label>
+                    <select name="gender" value={profileData.gender} onChange={(e) => handleUpdate('gender', e.target.value)} required className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Select Gender</option>
+                        {genderOptions.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                </div>
+                 <div>
+                    <label className="block mb-1 text-sm font-bold text-gray-300">Age</label>
+                    <select name="age" value={profileData.age} onChange={(e) => handleUpdate('age', e.target.value)} required className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Select Age</option>
+                        {ageOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                </div>
+            </div>
+             <div>
+                <label className="block mb-1 text-sm font-bold text-gray-300">Race/Ethnicity</label>
+                <select name="race" value={profileData.race} onChange={(e) => handleUpdate('race', e.target.value)} required className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500">
+                    <option value="">Select Race/Ethnicity</option>
+                    {raceOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+            </div>
+            <div>
+                <label className="block mb-1 text-sm font-bold text-gray-300">Religion</label>
+                <select name="religion" value={profileData.religion} onChange={(e) => handleUpdate('religion', e.target.value)} required className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 focus:border-blue-500 focus:ring-blue-500">
+                    <option value="">Select Religion</option>
+                    {religionOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+            </div>
+
+            {/* Existing Stances, Bio, etc. */}
             <div>
                 <label className="block mb-1 text-sm font-bold text-gray-300">Economic Stance: {getStanceLabel(profileData.economic_stance)}</label>
-                <input 
-                    type="range" min="1" max="7" 
-                    value={profileData.economic_stance} 
-                    onChange={e => handleUpdate('economic_stance', e.target.value)} 
-                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
+                <input type="range" min="1" max="7" value={profileData.economic_stance} onChange={e => handleUpdate('economic_stance', e.target.value)} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"/>
             </div>
              <div>
                 <label className="block mb-1 text-sm font-bold text-gray-300">Social Stance: {getStanceLabel(profileData.social_stance)}</label>
-                <input 
-                    type="range" min="1" max="7" 
-                    value={profileData.social_stance} 
-                    onChange={e => handleUpdate('social_stance', e.target.value)} 
-                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
+                <input type="range" min="1" max="7" value={profileData.social_stance} onChange={e => handleUpdate('social_stance', e.target.value)} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"/>
             </div>
             {profileData.home_state && (
                 <div className="bg-gray-700/50 p-4 rounded-lg mt-4">
@@ -324,16 +328,11 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
             )}
             <div>
                 <label className="block mb-1 text-sm font-bold text-gray-300">Bio (Optional)</label>
-                <textarea
-                    value={profileData.bio}
-                    onChange={(e) => handleUpdate('bio', e.target.value)}
-                    placeholder="A brief political bio..."
-                    className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 h-24 focus:border-blue-500 focus:ring-blue-500"
-                />
+                <textarea value={profileData.bio} onChange={(e) => handleUpdate('bio', e.target.value)} placeholder="A brief political bio..." className="w-full p-2 bg-gray-700 rounded text-white border border-gray-600 h-24 focus:border-blue-500 focus:ring-blue-500"/>
             </div>
             <button 
                 onClick={finishSetup} 
-                disabled={!profileData.party || !profileData.home_state} 
+                disabled={!profileData.party || !profileData.home_state || !profileData.gender || !profileData.race || !profileData.religion || !profileData.age} 
                 className="w-full bg-green-600 p-3 rounded font-bold text-lg hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
             >
                 Enter the Arena
