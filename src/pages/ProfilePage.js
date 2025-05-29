@@ -111,6 +111,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         clearMessages();
 
         if (!currentUser) {
+            console.log("ProfilePage - loadProfile: currentUser is null, navigating away.");
             navigate('/');
             return;
         }
@@ -122,6 +123,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             setIsOwnProfile(viewingOwnProfile);
 
             const data = viewingOwnProfile ? currentUser : await apiCall(`/profiles/${targetUserId}`);
+            console.log("ProfilePage - loadProfile: Setting profileData to:", data);
             setProfileData(data);
 
             if (data && data.home_state && data.economic_stance !== undefined && data.social_stance !== undefined) {
