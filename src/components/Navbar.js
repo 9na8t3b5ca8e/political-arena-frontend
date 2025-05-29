@@ -35,9 +35,17 @@ export default function Navbar({ currentUser, logout, gameDate }) {
             )}
             <NavLink to="/map" style={navLinkStyles} className="text-sm sm:text-base">USA Map</NavLink>
             {currentUser && <NavLink to={`/profile/${currentUser.id}`} style={navLinkStyles} className="text-sm sm:text-base">Profile</NavLink>}
-            {currentUser && <NavLink to="/party" style={navLinkStyles} className="flex items-center text-sm sm:text-base">
-                <Users size={14} className="mr-1 hidden sm:inline-block"/> Party
-            </NavLink>}
+            {currentUser && (
+                <div className="relative group">
+                    <button style={navLinkStyles({ isActive: false })} className="flex items-center text-sm sm:text-base text-gray-400 group-hover:text-gray-200">
+                        <Users size={14} className="mr-1 hidden sm:inline-block"/> Parties <span className="ml-1 text-xs">▼</span>
+                    </button>
+                    <div className="absolute left-0 mt-2 w-48 bg-gray-700 rounded-md shadow-lg py-1 z-20 hidden group-hover:block">
+                        <NavLink to={currentUser.party_id ? `/party/${currentUser.party_id}` : '/party'} style={navLinkStyles} className="block px-4 py-2 text-sm hover:bg-gray-600">My Party</NavLink>
+                        <NavLink to="/parties" style={navLinkStyles} className="block px-4 py-2 text-sm hover:bg-gray-600">View All Parties</NavLink>
+                    </div>
+                </div>
+            )}
             </nav>
         </div>
 

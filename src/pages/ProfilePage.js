@@ -544,7 +544,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             {isOwnProfile && profileData?.party_id && (
                 <>
                     <CampaignHQ />
-                    <PartyManagement partyId={profileData.party_id} />
+                    <PartyManagement partyId={profileData.party_id} currentUser={currentUser} />
                 </>
             )}
             {isOwnProfile && !profileData?.party_id && (

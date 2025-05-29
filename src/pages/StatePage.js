@@ -400,12 +400,12 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                                                               </button>
                                                               {c.user_id !== currentUser.id && (
                                                                   <div className="flex gap-2">
-                                                                      <button
-                                                                          onClick={() => handleAttackAd(c.user_id)}
-                                                                          disabled={isProcessingAction}
+                                                                  <button
+                                                                      onClick={() => handleAttackAd(c.user_id)}
+                                                                      disabled={isProcessingAction}
                                                                           className="flex items-center gap-1 px-2 py-1 text-sm bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded"
                                                                           title="Launch attack ad"
-                                                                      >
+                                                                  >
                                                                           <Target size={16} /> Attack
                                                                       </button>
                                                                       <button
@@ -415,7 +415,7 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                                                                           title="Support campaign"
                                                                       >
                                                                           <CheckCircle size={16} /> Support
-                                                                      </button>
+                                                                  </button>
                                                                   </div>
                                                               )}
                                                             </div>

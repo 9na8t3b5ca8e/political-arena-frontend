@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { apiCall } from '../api';
+// import { useAuth } from '../contexts/AuthContext'; // Assuming AuthContext provides currentUser
 
-const PartyManagement = ({ partyId }) => {
+const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser prop
+    // const { user: currentUser } = useAuth(); // If using AuthContext
     const [partyDetails, setPartyDetails] = useState(null);
     const [candidates, setCandidates] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -9,6 +11,8 @@ const PartyManagement = ({ partyId }) => {
     const [fundingAmount, setFundingAmount] = useState('');
     const [fundingReason, setFundingReason] = useState('');
     const [targetMemberId, setTargetMemberId] = useState('');
+    const [targetMemberFirstName, setTargetMemberFirstName] = useState('');
+    const [targetMemberLastName, setTargetMemberLastName] = useState('');
     const [platform, setPlatform] = useState('');
     const [selectedPosition, setSelectedPosition] = useState('');
 
@@ -45,7 +49,8 @@ const PartyManagement = ({ partyId }) => {
                 method: 'POST',
                 body: JSON.stringify({
                     partyId,
-                    targetUserId: targetMemberId,
+                    targetUserFirstName,
+                    targetUserLastName,
                     amount: parseInt(fundingAmount),
                     reason: fundingReason
                 })
@@ -53,7 +58,8 @@ const PartyManagement = ({ partyId }) => {
             // Reset form
             setFundingAmount('');
             setFundingReason('');
-            setTargetMemberId('');
+            setTargetMemberFirstName('');
+            setTargetMemberLastName('');
             // Refresh party details
             const partyRes = await apiCall(`/party/${partyId}`);
             setPartyDetails(partyRes);
@@ -104,13 +110,19 @@ const PartyManagement = ({ partyId }) => {
     };
 
     if (loading) return <div className="p-4">Loading...</div>;
-    if (error) return <div className="p-4 text-red-600">{error}</div>;
+    if (error) return <div className="p-4 text-red-500 bg-red-100 border border-red-400 rounded">{error}</div>;
+
+    const isPartyLeader = currentUser && partyDetails && 
+        (partyDetails.chair_user_id === currentUser.id || 
+         partyDetails.vice_chair_user_id === currentUser.id || 
+         partyDetails.treasurer_user_id === currentUser.id);
 
     return (
-        <div className="p-4 space-y-6">
-            <h2 className="text-2xl font-bold mb-4">Party Management</h2>
+        <div className="p-4 space-y-6 text-gray-900">
+            <h2 className="text-2xl font-bold mb-4 text-gray-100">Party Management</h2>
 
             {/* Party Details */}
+            {partyDetails && (
             <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-xl font-semibold mb-4">Party Details</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -134,21 +146,43 @@ const PartyManagement = ({ partyId }) => {
                         <p className="font-semibold">Treasurer:</p>
                         <p>{partyDetails.treasurer_username || 'Vacant'}</p>
                     </div>
+                    <div>
+                        <p className="font-semibold">Economic Stance:</p>
+                        <p>{partyDetails.economic_stance_label || 'Not Set'}</p>
+                    </div>
+                    <div>
+                        <p className="font-semibold">Social Stance:</p>
+                        <p>{partyDetails.social_stance_label || 'Not Set'}</p>
+                    </div>
                 </div>
             </div>
+            )}
 
-            {/* Funding Proposal Form */}
+            {/* Funding Proposal Form - Conditional Rendering */}
+            {isPartyLeader && (
             <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-xl font-semibold mb-4">Submit Funding Proposal</h3>
                 <form onSubmit={handleFundingProposal} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">
-                            Target Member ID
+                            Target Member First Name
                         </label>
                         <input
                             type="text"
-                            value={targetMemberId}
-                            onChange={(e) => setTargetMemberId(e.target.value)}
+                            value={targetMemberFirstName}
+                            onChange={(e) => setTargetMemberFirstName(e.target.value)}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                            Target Member Last Name
+                        </label>
+                        <input
+                            type="text"
+                            value={targetMemberLastName}
+                            onChange={(e) => setTargetMemberLastName(e.target.value)}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                             required
                         />
@@ -185,6 +219,7 @@ const PartyManagement = ({ partyId }) => {
                     </button>
                 </form>
             </div>
+            )}
 
             {/* Leadership Candidacy Form */}
             <div className="bg-white rounded-lg shadow p-6">
@@ -215,6 +250,7 @@ const PartyManagement = ({ partyId }) => {
                             onChange={(e) => setPlatform(e.target.value)}
                             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                             rows="4"
+                            placeholder="Describe your vision for the party, key goals, and what you will bring to this leadership role."
                             required
                         />
                     </div>
@@ -248,7 +284,7 @@ const PartyManagement = ({ partyId }) => {
                                     ) : (
                                         <div className="grid gap-4 md:grid-cols-2">
                                             {positionCandidates.map((candidate) => (
-                                                <div key={candidate.id} className="border rounded-lg p-4">
+                                                <div key={candidate.id} className="border rounded-lg p-4 text-gray-800">
                                                     <p className="font-semibold">{candidate.username}</p>
                                                     <p className="text-sm text-gray-600 mt-2">
                                                         {candidate.platform}

@@ -19,7 +19,7 @@ const PartyPage = ({ currentUser }) => {
 
     return (
         <div className="p-4 bg-gray-800 rounded-lg">
-            <PartyManagement partyId={targetPartyId} />
+            <PartyManagement partyId={targetPartyId} currentUser={currentUser} />
         </div>
     );
 };

@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
 import PartyPage from './pages/PartyPage';
+import AllPartiesPage from './pages/AllPartiesPage';
 import { allStates, stateData, stanceScale } from './state-data';
 import StatePage from './pages/StatePage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -65,6 +66,7 @@ function AppContent() {
                   <Route path="/profile/:userId" element={<ProfilePage currentUser={currentUser} />} />
                   <Route path="/party" element={<PartyPage currentUser={currentUser} />} />
                   <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
+                  <Route path="/parties" element={<AllPartiesPage />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </main>
