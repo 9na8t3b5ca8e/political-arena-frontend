@@ -79,7 +79,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 firstName: data.first_name || '',
                 lastName: data.last_name || '',
                 username: data.username || '',
-                email: data.email || '',
+                // email: data.email || '', // Email is no longer directly edited here
                 party: data.party || '',
                 home_state: data.home_state || '',
                 economic_stance: parseInt(data.economic_stance, 10) || 4,
@@ -400,7 +400,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                     <UserCircle2 className="h-32 w-32 text-gray-500 border-4 border-gray-700 rounded-full p-2 mb-2"/>
                                 )}
                                 <label htmlFor="profilePictureInput" className="w-full text-center bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md cursor-pointer shadow-md text-xs flex items-center justify-center">
-                                    {/* Corrected icon usage */}
                                     <UploadCloud size={14} className="mr-1.5"/> Change Picture
                                 </label>
                                 <input type="file" id="profilePictureInput" className="hidden" accept="image/png, image/jpeg, image/gif" onChange={handleProfilePictureChange} />
@@ -464,11 +463,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                     {profileData.religion && <ReadOnlyField label="Religion" value={profileData.religion} />}
                                 </>
                             )}
-                            <ReadOnlyField
-                                label="Email"
-                                valueHtml={profileData.email ? <>{profileData.email} <span className="text-xs text-gray-500 ml-1">(Not publicly shown)</span></> : <span className="text-gray-500">Email not available</span>}
-                                icon={<Mail size={14}/>}
-                            />
+                            {/* Email field has been removed from here */}
                             <ReadOnlyField label="Username" value={`@${profileData.username || 'N/A'}`} icon={<User size={14}/>} />
                         </InfoCard>
                         <InfoCard title="Political Stats" icon={<TrendingUp size={18}/>}>
@@ -530,7 +525,15 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                     </div>
                 </div>
             </div>
-            {isOwnProfile && showPasswordModal && ( <PasswordChangeModal isOpen={showPasswordModal} onClose={() => { setShowPasswordModal(false); clearMessages(); }} onSuccess={(message) => { setSuccess(message); setShowPasswordModal(false); }} onError={(message) => { setError(message); }} /> )}
+            {isOwnProfile && showPasswordModal && (
+                <PasswordChangeModal
+                    isOpen={showPasswordModal}
+                    onClose={() => { setShowPasswordModal(false); clearMessages(); }}
+                    onSuccess={(message) => { setSuccess(message); setShowPasswordModal(false); }}
+                    onError={(message) => { setError(message); }}
+                    userEmail={currentUser?.email} // Pass user's email to the modal
+                />
+            )}
         </>
     );
 }
