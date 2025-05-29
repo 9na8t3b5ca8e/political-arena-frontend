@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiCall } from '../api';
 import { stanceScale, allStates, stateData as allStateData } from '../state-data';
-import { Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, Copy, Check, AlertTriangle, Lock, Settings as SettingsIcon, MinusCircle, PlusCircle } from 'lucide-react';
+import { Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, Copy, Check, AlertTriangle, Lock, Settings as SettingsIcon, ImageUp, Trash2, UserCircle2 } from 'lucide-react';
 import PasswordChangeModal from '../components/PasswordChangeModal';
 
 // Helper to get stance label
@@ -57,6 +57,10 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [econStancePCCost, setEconStancePCCost] = useState(0);
     const [socialStancePCCost, setSocialStancePCCost] = useState(0);
+    const [selectedProfilePictureFile, setSelectedProfilePictureFile] = useState(null);
+    const [profilePicturePreview, setProfilePicturePreview] = useState(null);
+    const [isUploadingPicture, setIsUploadingPicture] = useState(false);
+
 
     const clearMessages = () => {
         setError('');
@@ -73,16 +77,21 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 bio: data.bio || '', gender: data.gender || '',
                 race: data.race || '', religion: data.religion || '',
                 age: data.age || '',
+                profile_picture_url: data.profile_picture_url || null, // Include this
             };
             setEditableFields(newEditableFields);
             setBioCharCount(data.bio?.length || 0);
-            // Calculate initial PC costs if in edit mode (though this will also be done by useEffect)
-            if (profileData) { // Ensure profileData is available for comparison
+            setProfilePicturePreview(data.profile_picture_url || null); 
+            // Calculate initial PC costs when initializing fields based on current profile data
+            if (profileData) { // Check if profileData (representing the *current saved* state) exists
                  setEconStancePCCost(Math.abs(newEditableFields.economic_stance - profileData.economic_stance) * STANCE_CHANGE_PC_PER_POSITION);
                  setSocialStancePCCost(Math.abs(newEditableFields.social_stance - profileData.social_stance) * STANCE_CHANGE_PC_PER_POSITION);
+            } else { // If profileData is not yet set (e.g., initial load), cost is 0
+                setEconStancePCCost(0);
+                setSocialStancePCCost(0);
             }
         }
-    }, [profileData]); // Add profileData as a dependency
+    }, [profileData]); // profileData is a dependency to correctly calculate initial stance change costs
 
 
     const loadProfile = useCallback(async () => {
@@ -100,10 +109,9 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             
             setIsOwnProfile(viewingOwnProfile);
 
-            // Use currentUser data if viewing own profile to ensure latest global state is reflected
             const data = viewingOwnProfile ? currentUser : await apiCall(`/profiles/${targetUserId}`);
-            setProfileData(data); // Set profileData first
-            // initializeEditableFields will be called by the useEffect watching profileData
+            setProfileData(data); 
+            // initializeEditableFields will be called by the useEffect watching profileData changes
             
             if (data.home_state && data.economic_stance !== undefined && data.social_stance !== undefined) {
                 setAlignment(calculateStateAlignment(data.economic_stance, data.social_stance, data.home_state));
@@ -142,7 +150,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         }
     }, [currentUser, paramsUserId, loadProfile]);
 
-    // Initialize or re-initialize editableFields whenever profileData changes
     useEffect(() => {
         if (profileData) {
             initializeEditableFields(profileData);
@@ -155,6 +162,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         if (currentFieldsSource && currentFieldsSource.home_state && currentFieldsSource.economic_stance !== undefined && currentFieldsSource.social_stance !== undefined) {
             setAlignment(calculateStateAlignment(currentFieldsSource.economic_stance, currentFieldsSource.social_stance, currentFieldsSource.home_state));
         }
+        // Update PC costs dynamically when editable stances change
         if (editMode && profileData && editableFields.economic_stance !== undefined) {
             setEconStancePCCost(Math.abs(editableFields.economic_stance - profileData.economic_stance) * STANCE_CHANGE_PC_PER_POSITION);
         }
@@ -180,14 +188,83 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     const handleStanceChange = (name, valueStr) => {
         const value = parseInt(valueStr, 10);
         setEditableFields(prev => ({ ...prev, [name]: value }));
-        if (profileData) { // Ensure profileData is loaded for comparison
-            if (name === 'economic_stance') {
-                setEconStancePCCost(Math.abs(value - profileData.economic_stance) * STANCE_CHANGE_PC_PER_POSITION);
-            } else if (name === 'social_stance') {
-                setSocialStancePCCost(Math.abs(value - profileData.social_stance) * STANCE_CHANGE_PC_PER_POSITION);
+    };
+
+    const handleProfilePictureChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) { 
+                setError("File size too large. Max 5MB allowed.");
+                setSelectedProfilePictureFile(null);
+                setProfilePicturePreview(editableFields.profile_picture_url || null); // Revert to current or null
+                e.target.value = null; // Reset file input
+                return;
             }
+            if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+                setError("Invalid file type. Only JPG, PNG, GIF allowed.");
+                setSelectedProfilePictureFile(null);
+                setProfilePicturePreview(editableFields.profile_picture_url || null); // Revert
+                e.target.value = null; // Reset file input
+                return;
+            }
+            clearMessages();
+            setSelectedProfilePictureFile(file);
+            setProfilePicturePreview(URL.createObjectURL(file));
         }
     };
+
+    const handleProfilePictureUpload = async () => {
+        if (!selectedProfilePictureFile) {
+            setError("No picture selected to upload.");
+            return;
+        }
+        clearMessages();
+        setIsUploadingPicture(true);
+        const formData = new FormData();
+        formData.append('profilePicture', selectedProfilePictureFile);
+
+        try {
+            // apiCall needs to be adapted to handle FormData (non-JSON)
+            const response = await apiCall('/auth/profile/picture', {
+                method: 'POST',
+                body: formData,
+                headers: { 
+                    // Let browser set Content-Type for FormData
+                    ...(localStorage.getItem('authToken') && { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }) 
+                },
+            }, true); // Pass true to indicate this is not a JSON request
+
+            // Assuming backend now returns the full updated profile in response.updatedProfile
+            setProfileData(response.updatedProfile); // Update local profileData
+            if (setCurrentUser) setCurrentUser(response.updatedProfile); // Update global state
+            initializeEditableFields(response.updatedProfile); // Re-initialize editable fields
+            setSelectedProfilePictureFile(null); // Clear selected file
+            setSuccess(response.message || "Profile picture updated.");
+        } catch (err) {
+            setError(err.message || "Failed to upload picture.");
+        } finally {
+            setIsUploadingPicture(false);
+        }
+    };
+    
+    const handleRemoveProfilePicture = async () => {
+        clearMessages();
+        if (!window.confirm("Are you sure you want to remove your profile picture?")) return;
+        setIsUploadingPicture(true); 
+        try {
+            const response = await apiCall('/auth/profile/picture', { method: 'DELETE' });
+            setProfileData(response.updatedProfile); 
+            if (setCurrentUser) setCurrentUser(response.updatedProfile);
+            initializeEditableFields(response.updatedProfile);
+            setSelectedProfilePictureFile(null);
+            setSuccess(response.message || "Profile picture removed.");
+        } catch (err) {
+            setError(err.message || "Failed to remove picture.");
+        } finally {
+            setIsUploadingPicture(false);
+        }
+    };
+
 
     const handleSaveChanges = async () => {
         clearMessages();
@@ -206,7 +283,9 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             }
         }
 
-        const totalPCCostForStances = econStancePCCost + socialStancePCCost;
+        const totalPCCostForStances = (econStanceChanged ? Math.abs(editableFields.economic_stance - profileData.economic_stance) * STANCE_CHANGE_PC_PER_POSITION : 0) +
+                                   (socialStanceChanged ? Math.abs(editableFields.social_stance - profileData.social_stance) * STANCE_CHANGE_PC_PER_POSITION : 0);
+
 
         if (totalPCCostForStances > 0 && currentUser.political_capital < totalPCCostForStances) {
             setError(`Insufficient Political Capital. You need ${totalPCCostForStances} PC to make these stance changes. You have ${currentUser.political_capital} PC.`);
@@ -219,23 +298,19 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         }
 
         try {
-            const payload = { 
-                economicStance: econStanceChanged ? parseInt(editableFields.economic_stance, 10) : undefined,
-                socialStance: socialStanceChanged ? parseInt(editableFields.social_stance, 10) : undefined,
-                bio: editableFields.bio !== profileData.bio ? editableFields.bio : undefined,
-                gender: editableFields.gender !== profileData.gender ? editableFields.gender : undefined,
-                race: editableFields.race !== profileData.race ? editableFields.race : undefined,
-                religion: editableFields.religion !== profileData.religion ? editableFields.religion : undefined,
-                age: editableFields.age !== profileData.age ? (editableFields.age ? parseInt(editableFields.age, 10) : null) : undefined,
-            };
-            
+            const payload = {};
             if (nameChanged && !isNameChangeCooldownActive) {
                 payload.firstName = editableFields.firstName;
                 payload.lastName = editableFields.lastName;
             }
-            // Filter out undefined fields from payload to only send changed data
-            Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
-
+            if (econStanceChanged) payload.economicStance = parseInt(editableFields.economic_stance, 10);
+            if (socialStanceChanged) payload.socialStance = parseInt(editableFields.social_stance, 10);
+            if (editableFields.bio !== profileData.bio) payload.bio = editableFields.bio;
+            if (editableFields.gender !== profileData.gender) payload.gender = editableFields.gender;
+            if (editableFields.race !== profileData.race) payload.race = editableFields.race;
+            if (editableFields.religion !== profileData.religion) payload.religion = editableFields.religion;
+            if (editableFields.age !== profileData.age) payload.age = editableFields.age ? parseInt(editableFields.age, 10) : null;
+            
             if (Object.keys(payload).length === 0) {
                 setSuccess("No changes were made to your profile.");
                 setEditMode(false);
@@ -244,19 +319,46 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             
             const response = await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) });
             
-            // It's crucial that setCurrentUser is called to update the global state
-            // which will then flow back down as props, triggering re-renders including loadProfile.
+            setProfileData(response.updatedProfile);
             if (setCurrentUser) setCurrentUser(response.updatedProfile); 
-            // setProfileData(response.updatedProfile); // This will be handled by the effect watching currentUser
+            initializeEditableFields(response.updatedProfile); // Ensure editable fields are synced
             setEditMode(false);
             setSuccess(response.message || 'Profile updated successfully!');
+            
+            if (response.updatedProfile.last_name_change_date) {
+                const lastChange = new Date(response.updatedProfile.last_name_change_date);
+                let cooldownEnds = new Date(lastChange.valueOf());
+                cooldownEnds.setDate(cooldownEnds.getDate() + NAME_CHANGE_COOLDOWN_DAYS);
+                const today = new Date();
+                if (today < cooldownEnds) {
+                    setIsNameChangeCooldownActive(true);
+                    setNextNameChangeDate(cooldownEnds.toLocaleDateString());
+                } else {
+                    setIsNameChangeCooldownActive(false);
+                    setNextNameChangeDate(null);
+                }
+            }
         } catch (err) {
             setError(`Failed to save changes: ${err.message}`);
         }
     };
     
-    const copyProfileLink = () => { /* ... */ };
-    const renderGubernatorialHistory = (history) => { /* ... */ };
+    const copyProfileLink = () => {
+        if (profileData && profileData.id) {
+            const link = `${window.location.origin}/profile/${profileData.id}`;
+            navigator.clipboard.writeText(link).then(() => {
+                setJustCopied(true);
+                setTimeout(() => setJustCopied(false), 2000);
+            });
+        }
+    };
+    
+    const renderGubernatorialHistory = (history) => {
+        if (!history || typeof history !== 'object' || Object.keys(history).length === 0) {
+            return <p className="text-sm text-gray-500">No gubernatorial history.</p>;
+        }
+        return ( <ul className="space-y-2"> {Object.entries(history).map(([state, data]) => ( <li key={state} className="text-sm"> <strong className="text-gray-300">{state}:</strong> {data.terms_served} term(s) served. {data.previous_terms && data.previous_terms.length > 0 && ( <ul className="list-disc list-inside pl-4 text-xs text-gray-400"> {data.previous_terms.map((term, i) => <li key={i}>{term.start_year} - {term.end_year}</li>)} </ul> )} </li> ))} </ul> );
+    };
 
     if (loading) return <div className="text-center py-10 text-gray-400">Loading profile...</div>;
     if (error && !profileData && !loading) return <div className="bg-red-500/20 text-red-400 p-4 rounded-lg">{error}</div>;
@@ -274,13 +376,47 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 {isOwnProfile && ( <div className="mb-4 bg-gray-900/50 p-3 rounded-lg"> <label className="text-xs text-gray-400">Your Shareable Profile Link</label> <div className="flex items-center gap-2 mt-1"> <input type="text" readOnly value={`${window.location.origin}/profile/${profileData.id}`} className="w-full bg-gray-700 text-gray-300 p-1 rounded-md text-sm border-gray-600"/> <button onClick={copyProfileLink} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm flex items-center shrink-0"> {justCopied ? <Check size={16} className="mr-1.5"/> : <Copy size={16} className="mr-1.5"/>} {justCopied ? 'Copied!' : 'Copy'} </button> </div> </div> )}
                 {isOwnProfile && isNameChangeCooldownActive && editMode && ( <div className="mb-4 bg-yellow-600/20 text-yellow-300 p-3 rounded text-sm flex items-center"> <Lock size={16} className="mr-2" /> Name fields are locked. You can change your name again on {nextNameChangeDate}. </div> )}
 
-                <div className="flex justify-between items-start mb-6"> 
-                    <h2 className="text-3xl font-bold text-blue-300"> {profileData.first_name} {profileData.last_name} <span className="text-lg text-gray-400 ml-2">(@{profileData.username})</span> </h2> 
-                    {isOwnProfile && ( 
-                        <div className="flex items-center gap-2"> 
+                <div className="flex flex-col sm:flex-row items-center sm:items-start mb-6">
+                    <div className="relative mb-4 sm:mb-0 sm:mr-6 shrink-0">
+                        {editMode && isOwnProfile ? (
+                            <div className="flex flex-col items-center">
+                                {profilePicturePreview ? (
+                                    <img src={profilePicturePreview} alt="Profile Preview" className="h-32 w-32 rounded-full object-cover border-4 border-blue-500/50 mb-2"/>
+                                ) : (
+                                    <UserCircle2 className="h-32 w-32 text-gray-500 border-4 border-gray-700 rounded-full p-2 mb-2"/>
+                                )}
+                                <label htmlFor="profilePictureInput" className="w-full text-center bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md cursor-pointer shadow-md text-xs flex items-center justify-center">
+                                    <ImageUp size={14} className="mr-1.5"/> Change Picture
+                                </label>
+                                <input type="file" id="profilePictureInput" className="hidden" accept="image/png, image/jpeg, image/gif" onChange={handleProfilePictureChange} />
+                                {selectedProfilePictureFile && (
+                                     <button onClick={handleProfilePictureUpload} disabled={isUploadingPicture} className="mt-2 w-full text-xs bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded">
+                                        {isUploadingPicture ? "Uploading..." : "Upload New Picture"}
+                                    </button>
+                                )}
+                                 {editableFields.profile_picture_url && !selectedProfilePictureFile && ( // Show remove only if there's a picture and no new one selected
+                                    <button onClick={handleRemoveProfilePicture} disabled={isUploadingPicture} className="mt-2 w-full text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded">
+                                        {isUploadingPicture ? "Removing..." : "Remove Picture"}
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            profileData.profile_picture_url ? (
+                                <img src={profileData.profile_picture_url} alt={`${profileData.first_name} ${profileData.last_name}`} className="h-32 w-32 rounded-full object-cover border-4 border-gray-700"/>
+                            ) : (
+                                <UserCircle2 className="h-32 w-32 text-gray-500 border-4 border-gray-700 rounded-full p-2"/>
+                            )
+                        )}
+                    </div>
+                    
+                    <div className="flex-grow text-center sm:text-left">
+                        <h2 className="text-3xl font-bold text-blue-300"> {profileData.first_name} {profileData.last_name} <span className="text-lg text-gray-400 ml-2">(@{profileData.username})</span> </h2> 
+                    </div>
+                     {isOwnProfile && ( 
+                        <div className="flex items-center gap-2 mt-3 sm:mt-0 sm:ml-auto shrink-0"> 
                             {editMode ? ( 
                                 <> <button onClick={handleSaveChanges} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Save size={16} className="mr-2"/> Save</button> 
-                                <button onClick={() => { setEditMode(false); clearMessages(); initializeEditableFields(profileData); }} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">Cancel</button> </> 
+                                <button onClick={() => { setEditMode(false); clearMessages(); initializeEditableFields(profileData); setSelectedProfilePictureFile(null); /* Revert preview to saved URL */ setProfilePicturePreview(profileData.profile_picture_url || null);}} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">Cancel</button> </> 
                             ) : ( 
                                 <>
                                 <button onClick={() => { initializeEditableFields(profileData); setEditMode(true); clearMessages();}} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Edit3 size={16} className="mr-2"/> Edit Profile</button> 
@@ -290,6 +426,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                         </div> 
                     )} 
                 </div>
+
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="md:col-span-1 space-y-6">
@@ -312,9 +449,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                     {profileData.religion && <ReadOnlyField label="Religion" value={profileData.religion} />}
                                 </>
                             )}
-                             {/* Corrected Email Display */}
-                            <ReadOnlyField label="Email" valueHtml={<>{profileData.email} <span className="text-xs text-gray-500 ml-1">(Not shown publicly)</span></>} icon={<Mail size={14}/>} />
-                            {/* Corrected Username Display */}
+                            <ReadOnlyField label="Email" valueHtml={<>{profileData.email} <span className="text-xs text-gray-500 ml-1">(Not publicly shown)</span></>} icon={<Mail size={14}/>} /> 
                             <ReadOnlyField label="Username" value={`@${profileData.username}`} icon={<User size={14}/>} />
                         </InfoCard>
                         <InfoCard title="Political Stats" icon={<TrendingUp size={18}/>}>
@@ -336,12 +471,12 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                     <div className="mt-3">
                                         <label className="block text-sm font-medium text-gray-300">Economic Stance: {getStanceLabel(editableFields.economic_stance)} </label>
                                         <input type="range" min="1" max="7" name="economic_stance" value={Number(editableFields.economic_stance || 4)} onChange={(e) => handleStanceChange('economic_stance', e.target.value)} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 mb-1"/>
-                                        <p className="text-xs text-yellow-400 text-center">Cost: {econStancePCCost} PC</p>
+                                        <p className={`text-xs text-center ${econStancePCCost > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>Cost: {econStancePCCost} PC</p>
                                     </div>
                                     <div className="mt-2">
                                         <label className="block text-sm font-medium text-gray-300">Social Stance: {getStanceLabel(editableFields.social_stance)} </label>
                                         <input type="range" min="1" max="7" name="social_stance" value={Number(editableFields.social_stance || 4)} onChange={(e) => handleStanceChange('social_stance', e.target.value)} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 mb-1"/>
-                                        <p className="text-xs text-yellow-400 text-center">Cost: {socialStancePCCost} PC</p>
+                                        <p className={`text-xs text-center ${socialStancePCCost > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>Cost: {socialStancePCCost} PC</p>
                                     </div>
                                     { (econStancePCCost > 0 || socialStancePCCost > 0) &&
                                         <div className="mt-3 pt-2 border-t border-gray-700">
@@ -376,14 +511,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                     </div>
                 </div>
             </div>
-            {isOwnProfile && showPasswordModal && (
-                <PasswordChangeModal 
-                    isOpen={showPasswordModal} 
-                    onClose={() => { setShowPasswordModal(false); clearMessages(); }}
-                    onSuccess={(message) => { setSuccess(message); setShowPasswordModal(false); }}
-                    onError={(message) => { setError(message); /* Keep modal open for correction */}}
-                />
-            )}
+            {isOwnProfile && showPasswordModal && ( <PasswordChangeModal isOpen={showPasswordModal} onClose={() => { setShowPasswordModal(false); clearMessages(); }} onSuccess={(message) => { setSuccess(message); setShowPasswordModal(false); }} onError={(message) => { setError(message); }} /> )}
         </>
     );
 }
