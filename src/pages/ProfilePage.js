@@ -44,6 +44,7 @@ const NAME_CHANGE_COOLDOWN_DAYS = 7;
 const STANCE_CHANGE_PC_PER_POSITION = 5;
 
 export default function ProfilePage({ currentUser, setCurrentUser }) {
+    console.log("ProfilePage: Received currentUser prop:", currentUser);
     const { userId: paramsUserId } = useParams();
     const navigate = useNavigate();
 
