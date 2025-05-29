@@ -21,7 +21,7 @@ function App() {
       return;
     }
     try {
-      const profile = await apiCall('/auth/profile');
+      const profile = await apiCall('/profile');
       setCurrentUser(profile);
     } catch (error) {
       localStorage.removeItem('authToken');
