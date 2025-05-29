@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { apiCall } from '../api';
 import { Users, ChevronsRight, BarChart2, TrendingUp } from 'lucide-react'; // Added icons
+import PlayerDisplayName from '../components/PlayerDisplayName'; // Import PlayerDisplayName
+import StanceDisplay from '../components/StanceDisplay'; // Import StanceDisplay
 
 const AllPartiesPage = () => {
     const [parties, setParties] = useState([]);
@@ -41,18 +43,33 @@ const AllPartiesPage = () => {
                                     Members: <span className="font-semibold ml-1">{party.member_count || 0}</span>
                                 </p>
                                 <p className="text-sm text-gray-300 mb-1 truncate">
-                                    Chair: <span className="font-semibold">{party.chair_username || 'Vacant'}</span>
+                                    Chair: 
+                                    {party.chair_details ? (
+                                        <PlayerDisplayName 
+                                            userId={party.chair_details.id} 
+                                            firstName={party.chair_details.first_name} 
+                                            lastName={party.chair_details.last_name} 
+                                            profilePictureUrl={party.chair_details.profile_picture_url}
+                                            includePic={true}
+                                            picSize="h-5 w-5"
+                                            textClass="font-semibold ml-1"
+                                        />
+                                    ) : (
+                                        <span className="font-semibold ml-1">Vacant</span>
+                                    )}
                                 </p>
                                 <div className="mt-3 pt-3 border-t border-gray-600">
                                     <h4 className="text-xs font-semibold text-gray-400 mb-1">Ideology:</h4>
-                                    <p className="text-sm text-gray-300 mb-1 flex items-center">
-                                        <BarChart2 size={15} className="mr-2 text-green-400" />
-                                        Economic: <span className="font-semibold ml-1">{party.economic_stance_label || 'Not Set'}</span>
-                                    </p>
-                                    <p className="text-sm text-gray-300 flex items-center">
-                                        <TrendingUp size={15} className="mr-2 text-purple-400" />
-                                        Social: <span className="font-semibold ml-1">{party.social_stance_label || 'Not Set'}</span>
-                                    </p>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <BarChart2 size={15} className="text-green-400" />
+                                            <StanceDisplay value={party.economic_stance} label={party.economic_stance_label} type="economic" />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <TrendingUp size={15} className="text-purple-400" />
+                                            <StanceDisplay value={party.social_stance} label={party.social_stance_label} type="social" />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <Link 

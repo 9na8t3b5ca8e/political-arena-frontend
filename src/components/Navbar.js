@@ -37,12 +37,12 @@ export default function Navbar({ currentUser, logout, gameDate }) {
             {currentUser && <NavLink to={`/profile/${currentUser.id}`} style={navLinkStyles} className="text-sm sm:text-base">Profile</NavLink>}
             {currentUser && (
                 <div className="relative group">
-                    <button style={navLinkStyles({ isActive: false })} className="flex items-center text-sm sm:text-base text-gray-400 group-hover:text-gray-200">
+                    <button style={navLinkStyles({ isActive: false })} className="flex items-center text-sm sm:text-base text-gray-400 group-hover:text-gray-200 focus:outline-none">
                         <Users size={14} className="mr-1 hidden sm:inline-block"/> Parties <span className="ml-1 text-xs">▼</span>
                     </button>
-                    <div className="absolute left-0 mt-2 w-48 bg-gray-700 rounded-md shadow-lg py-1 z-20 hidden group-hover:block">
-                        <NavLink to={currentUser.party_id ? `/party/${currentUser.party_id}` : '/party'} style={navLinkStyles} className="block px-4 py-2 text-sm hover:bg-gray-600">My Party</NavLink>
-                        <NavLink to="/parties" style={navLinkStyles} className="block px-4 py-2 text-sm hover:bg-gray-600">View All Parties</NavLink>
+                    <div className="absolute left-0 mt-2 w-48 bg-gray-700 rounded-md shadow-lg py-1 z-20 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 ease-in-out invisible group-hover:visible group-focus-within:visible">
+                        <NavLink to={currentUser.party_id ? `/party/${currentUser.party_id}` : '/party'} style={navLinkStyles} className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left">My Party</NavLink>
+                        <NavLink to="/parties" style={navLinkStyles} className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left">View All Parties</NavLink>
                     </div>
                 </div>
             )}

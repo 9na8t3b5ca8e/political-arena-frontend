@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiCall } from '../api';
+import PlayerDisplayName from './PlayerDisplayName'; // Import PlayerDisplayName
+import StanceDisplay from './StanceDisplay'; // Import StanceDisplay
 // import { useAuth } from '../contexts/AuthContext'; // Assuming AuthContext provides currentUser
 
 const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser prop
@@ -15,6 +17,13 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
     const [targetMemberLastName, setTargetMemberLastName] = useState('');
     const [platform, setPlatform] = useState('');
     const [selectedPosition, setSelectedPosition] = useState('');
+
+    // State for leadership voting
+    const [selectedChairVote, setSelectedChairVote] = useState('');
+    const [selectedViceChairVote, setSelectedViceChairVote] = useState('');
+    const [selectedTreasurerVote, setSelectedTreasurerVote] = useState('');
+    const [electionCycleDateDisplay, setElectionCycleDateDisplay] = useState('');
+    const [electionCycleEndDisplay, setElectionCycleEndDisplay] = useState('');
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-US', {
@@ -33,6 +42,21 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 setPartyDetails(partyRes);
                 setCandidates(candidatesRes);
                 setLoading(false);
+
+                // Calculate and set election cycle date for display
+                const currentDate = new Date();
+                const dayOfWeek = currentDate.getDay();
+                const difference = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                const electionCycleStartDate = new Date(currentDate);
+                electionCycleStartDate.setDate(currentDate.getDate() + difference);
+                electionCycleStartDate.setHours(0,0,0,0);
+                setElectionCycleDateDisplay(electionCycleStartDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }));
+                // Calculate end of cycle (Sunday 11:59 PM)
+                const electionCycleEndDate = new Date(electionCycleStartDate);
+                electionCycleEndDate.setDate(electionCycleStartDate.getDate() + 6);
+                electionCycleEndDate.setHours(23,59,59,999);
+                setElectionCycleEndDisplay(electionCycleEndDate.toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }));
+
             } catch (err) {
                 setError('Failed to load party data');
                 setLoading(false);
@@ -90,20 +114,31 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
         }
     };
 
-    const handleLeadershipVote = async (chairId, viceChairId, treasurerId) => {
+    const handleLeadershipVote = async (e) => { // Modified to take event
+        e.preventDefault(); // Prevent default form submission
         try {
+            if (!selectedChairVote || !selectedViceChairVote || !selectedTreasurerVote) {
+                setError('Please select a candidate for each position.');
+                return;
+            }
             await apiCall('/party/leadership/vote', {
                 method: 'POST',
                 body: JSON.stringify({
                     partyId,
-                    chairVoteId: chairId,
-                    viceChairVoteId: viceChairId,
-                    treasurerVoteId: treasurerId
+                    chairVoteId: parseInt(selectedChairVote),
+                    viceChairVoteId: parseInt(selectedViceChairVote),
+                    treasurerVoteId: parseInt(selectedTreasurerVote)
                 })
             });
-            // Refresh party details
+            // Reset selections
+            setSelectedChairVote('');
+            setSelectedViceChairVote('');
+            setSelectedTreasurerVote('');
+            setError(null); // Clear previous errors
+            // Refresh party details (might show updated leadership if election processed)
             const partyRes = await apiCall(`/party/${partyId}`);
             setPartyDetails(partyRes);
+            alert('Votes submitted successfully!'); // Or use a more subtle notification
         } catch (err) {
             setError(err.message || 'Failed to submit vote');
         }
@@ -136,23 +171,47 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                     </div>
                     <div>
                         <p className="font-semibold">Chair:</p>
-                        <p>{partyDetails.chair_username || 'Vacant'}</p>
+                        {partyDetails.chair_details ? (
+                            <PlayerDisplayName 
+                                userId={partyDetails.chair_details.id} 
+                                firstName={partyDetails.chair_details.first_name} 
+                                lastName={partyDetails.chair_details.last_name} 
+                                profilePictureUrl={partyDetails.chair_details.profile_picture_url}
+                                includePic={true} picSize="h-5 w-5"
+                            />
+                        ) : <p>Vacant</p>}
                     </div>
                     <div>
                         <p className="font-semibold">Vice Chair:</p>
-                        <p>{partyDetails.vice_chair_username || 'Vacant'}</p>
+                        {partyDetails.vice_chair_details ? (
+                            <PlayerDisplayName 
+                                userId={partyDetails.vice_chair_details.id} 
+                                firstName={partyDetails.vice_chair_details.first_name} 
+                                lastName={partyDetails.vice_chair_details.last_name} 
+                                profilePictureUrl={partyDetails.vice_chair_details.profile_picture_url}
+                                includePic={true} picSize="h-5 w-5"
+                            />
+                        ) : <p>Vacant</p>}
                     </div>
                     <div>
                         <p className="font-semibold">Treasurer:</p>
-                        <p>{partyDetails.treasurer_username || 'Vacant'}</p>
+                        {partyDetails.treasurer_details ? (
+                            <PlayerDisplayName 
+                                userId={partyDetails.treasurer_details.id} 
+                                firstName={partyDetails.treasurer_details.first_name} 
+                                lastName={partyDetails.treasurer_details.last_name} 
+                                profilePictureUrl={partyDetails.treasurer_details.profile_picture_url}
+                                includePic={true} picSize="h-5 w-5"
+                            />
+                        ) : <p>Vacant</p>}
                     </div>
                     <div>
                         <p className="font-semibold">Economic Stance:</p>
-                        <p>{partyDetails.economic_stance_label || 'Not Set'}</p>
+                        <StanceDisplay value={partyDetails.economic_stance} label={partyDetails.economic_stance_label} type="economic" />
                     </div>
                     <div>
                         <p className="font-semibold">Social Stance:</p>
-                        <p>{partyDetails.social_stance_label || 'Not Set'}</p>
+                        <StanceDisplay value={partyDetails.social_stance} label={partyDetails.social_stance_label} type="social" />
                     </div>
                 </div>
             </div>
@@ -263,6 +322,72 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 </form>
             </div>
 
+            {/* Leadership Election Voting Section */}
+            <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-xl font-semibold mb-2">Party Leadership Election</h3>
+                <p className="text-sm text-gray-600 mb-1">Voting for the week of: <span className="font-semibold">{electionCycleDateDisplay}</span></p>
+                <p className="text-xs text-blue-700 mb-4">Voting closes: <span className="font-semibold">{electionCycleEndDisplay}</span>. Results are applied at the start of next week.</p>
+                
+                {candidates.length === 0 ? (
+                    <p className="text-gray-500">No candidates have run for leadership positions in the current election cycle.</p>
+                ) : (
+                    <form onSubmit={handleLeadershipVote} className="space-y-6">
+                        {['chair', 'vice_chair', 'treasurer'].map((position) => {
+                            const positionCandidates = candidates.filter(
+                                (c) => c.position_contested === position
+                            );
+                            let currentVote, setCurrentVote;
+                            if (position === 'chair') { currentVote = selectedChairVote; setCurrentVote = setSelectedChairVote; }
+                            else if (position === 'vice_chair') { currentVote = selectedViceChairVote; setCurrentVote = setSelectedViceChairVote; }
+                            else { currentVote = selectedTreasurerVote; setCurrentVote = setSelectedTreasurerVote; }
+
+                            return (
+                                <div key={position}>
+                                    <h4 className="font-semibold capitalize mb-2 text-gray-700">
+                                        Vote for {position.replace('_', ' ')}
+                                    </h4>
+                                    {positionCandidates.length === 0 ? (
+                                        <p className="text-sm text-gray-500">No candidates for this position.</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {positionCandidates.map((candidate) => (
+                                                <label key={candidate.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-gray-100 cursor-pointer">
+                                                    <input 
+                                                        type="radio" 
+                                                        name={position} 
+                                                        value={candidate.user_id} 
+                                                        checked={currentVote === candidate.user_id.toString()} 
+                                                        onChange={(e) => setCurrentVote(e.target.value)}
+                                                        className="form-radio h-4 w-4 text-blue-600"
+                                                    />
+                                                    <PlayerDisplayName 
+                                                        userId={candidate.user_id} 
+                                                        firstName={candidate.first_name} 
+                                                        lastName={candidate.last_name} 
+                                                        profilePictureUrl={candidate.profile_picture_url}
+                                                        includePic={true}
+                                                        picSize="h-8 w-8"
+                                                        textClass="text-gray-800"
+                                                    />
+                                                    <span className="text-xs text-gray-600 truncate">({candidate.platform.substring(0,50)}{candidate.platform.length > 50 ? '...' : ''})</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                        <button 
+                            type="submit" 
+                            className="w-full bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors disabled:bg-gray-400"
+                            disabled={candidates.length === 0} // Disable if no candidates at all
+                        >
+                            Submit Votes
+                        </button>
+                    </form>
+                )}
+            </div>
+
             {/* Current Candidates */}
             <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-xl font-semibold mb-4">Current Candidates</h3>
@@ -285,7 +410,15 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                                         <div className="grid gap-4 md:grid-cols-2">
                                             {positionCandidates.map((candidate) => (
                                                 <div key={candidate.id} className="border rounded-lg p-4 text-gray-800">
-                                                    <p className="font-semibold">{candidate.username}</p>
+                                                    <PlayerDisplayName 
+                                                        userId={candidate.user_id} 
+                                                        firstName={candidate.first_name} 
+                                                        lastName={candidate.last_name} 
+                                                        profilePictureUrl={candidate.profile_picture_url}
+                                                        includePic={true}
+                                                        picSize="h-8 w-8"
+                                                        textClass="font-semibold"
+                                                    />
                                                     <p className="text-sm text-gray-600 mt-2">
                                                         {candidate.platform}
                                                     </p>

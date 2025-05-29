@@ -8,6 +8,7 @@ import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
 import PartyPage from './pages/PartyPage';
 import AllPartiesPage from './pages/AllPartiesPage';
+import CampaignHQPage from './pages/CampaignHQPage';
 import { allStates, stateData, stanceScale } from './state-data';
 import StatePage from './pages/StatePage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -67,6 +68,7 @@ function AppContent() {
                   <Route path="/party" element={<PartyPage currentUser={currentUser} />} />
                   <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
                   <Route path="/parties" element={<AllPartiesPage />} />
+                  <Route path="/campaign-hq" element={<CampaignHQPage />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </main>
