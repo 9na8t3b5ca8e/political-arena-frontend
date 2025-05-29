@@ -6,7 +6,7 @@ import { stanceScale, allStates, stateData as allStateData } from '../state-data
 import {
     Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail,
     Copy,
-    Check, AlertTriangle, Lock, Settings as SettingsIcon, ImageUp,
+    Check, AlertTriangle, Lock, Settings as SettingsIcon, UploadCloud,
     Trash2, UserCircle2
 } from 'lucide-react';
 import PasswordChangeModal from '../components/PasswordChangeModal';
@@ -398,7 +398,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                 )}
                                 <label htmlFor="profilePictureInput" className="w-full text-center bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md cursor-pointer shadow-md text-xs flex items-center justify-center">
                                     {/* Corrected icon usage */}
-                                    <ImageUp size={14} className="mr-1.5"/> Change Picture
+                                    <UploadCloud size={14} className="mr-1.5"/> Change Picture
                                 </label>
                                 <input type="file" id="profilePictureInput" className="hidden" accept="image/png, image/jpeg, image/gif" onChange={handleProfilePictureChange} />
                                 {selectedProfilePictureFile && (
