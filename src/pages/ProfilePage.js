@@ -10,6 +10,7 @@ import {
     Trash2, UserCircle2
 } from 'lucide-react';
 import PasswordChangeModal from '../components/PasswordChangeModal';
+import ActiveCampaignsCard from '../components/ActiveCampaignsCard';
 
 // Helper to get stance label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value, 10))?.label || 'Moderate';
@@ -534,6 +535,10 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                     userEmail={currentUser?.email} // Pass user's email to the modal
                 />
             )}
+            <ActiveCampaignsCard 
+                userId={profileData?.user_id} 
+                isOwnProfile={isOwnProfile} 
+            />
         </>
     );
 }

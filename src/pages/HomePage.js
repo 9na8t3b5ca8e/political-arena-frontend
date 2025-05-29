@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom'; // Import Link
 import { apiCall } from '../api';
+import CampaignActions from '../components/CampaignActions';
 
 // Fundraising sub-component (can stay here or move to components folder)
 const Fundraising = ({ onFundraise }) => (
@@ -24,6 +25,52 @@ const Fundraising = ({ onFundraise }) => (
     </div>
 );
 
+// New MiniProfile component
+const MiniProfile = ({ user }) => (
+    <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
+        <div className="flex justify-between items-start mb-4">
+            <div>
+                <h2 className="text-xl font-bold text-gray-100">{user.first_name} {user.last_name}</h2>
+                <p className="text-sm text-gray-400">@{user.username}</p>
+            </div>
+            <Link to="/profile" className="text-blue-400 hover:text-blue-300 text-sm">View Full Profile</Link>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+                <p className="text-gray-400 text-sm">Party</p>
+                <p className="text-gray-100">{user.party}</p>
+            </div>
+            <div>
+                <p className="text-gray-400 text-sm">Current Office</p>
+                <p className="text-gray-100">{user.current_office}</p>
+            </div>
+            <div>
+                <p className="text-gray-400 text-sm">Campaign Funds</p>
+                <p className="text-gray-100">${user.campaign_funds?.toLocaleString()}</p>
+            </div>
+            <div>
+                <p className="text-gray-400 text-sm">Political Capital</p>
+                <p className="text-gray-100">{user.political_capital} PC</p>
+            </div>
+            <div>
+                <p className="text-gray-400 text-sm">Action Points</p>
+                <p className="text-gray-100">{user.action_points} AP</p>
+            </div>
+            <div>
+                <p className="text-gray-400 text-sm">Approval Rating</p>
+                <p className="text-gray-100">{user.approval_rating}%</p>
+            </div>
+            <div>
+                <p className="text-gray-400 text-sm">State Name Recognition</p>
+                <p className="text-gray-100">{user.state_name_recognition}%</p>
+            </div>
+            <div>
+                <p className="text-gray-400 text-sm">Campaign Strength</p>
+                <p className="text-gray-100">{user.campaign_strength}%</p>
+            </div>
+        </div>
+    </div>
+);
 
 export default function HomePage({ currentUser, setCurrentUser }) {
   const [myActiveElections, setMyActiveElections] = useState([]);
@@ -73,10 +120,16 @@ export default function HomePage({ currentUser, setCurrentUser }) {
     return `${hours}h ${minutes}m left`;
   };
 
+  const handleAction = (newStats) => {
+    setCurrentUser(prev => ({ ...prev, ...newStats }));
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <div className="md:col-span-2 space-y-6">
         {error && <div className="bg-red-500/20 text-red-400 p-3 rounded-lg" onClick={() => setError('')}>Error: {error}</div>}
+
+        <MiniProfile user={currentUser} />
 
         <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
           <h2 className="text-2xl font-bold text-blue-300 mb-4">Welcome, {currentUser.first_name}!</h2>
@@ -112,6 +165,7 @@ export default function HomePage({ currentUser, setCurrentUser }) {
 
       <div className="space-y-6">
         <Fundraising onFundraise={handleFundraise} /> 
+        <CampaignActions onAction={handleAction} />
       </div>
     </div>
   );

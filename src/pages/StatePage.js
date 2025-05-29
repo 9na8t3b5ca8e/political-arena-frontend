@@ -133,6 +133,33 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     finally { setIsProcessingAction(false); }
   };
 
+  const handleSupport = async (targetElectionCandidateId) => {
+    clearMessages();
+    try {
+        setIsProcessingAction(true);
+        const res = await apiCall('/actions/support-candidate', {
+            method: 'POST',
+            body: JSON.stringify({ targetElectionCandidateId })
+        });
+        setCurrentUser(prev => ({
+            ...prev,
+            action_points: res.newStats.action_points,
+            political_capital: res.newStats.political_capital
+        }));
+        setSuccessMessage(res.message);
+        
+        // Refresh election data to show updated approval ratings
+        if (selectedElection) {
+            const electionDetailsResult = await apiCall(`/elections/${selectedElection.id}`);
+            setSelectedElection(electionDetailsResult);
+        }
+    } catch (err) {
+        setError(err.message);
+    } finally {
+        setIsProcessingAction(false);
+    }
+  };
+
   const handleFileForElection = async (electionId, filingFee) => {
       clearMessages();
       setIsProcessingAction(true);
@@ -371,14 +398,25 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                                                               <button onClick={() => handleToggleFinance(c.election_candidate_id)} className="text-xs bg-teal-600 px-2 py-1 rounded hover:bg-teal-500">
                                                                 <DollarSign size={12} className="inline mr-1"/>Finance
                                                               </button>
-                                                              {currentUser.id !== c.user_id && selectedElection.status === 'campaign_active' && (
-                                                                  <button
-                                                                      onClick={() => handleAttackAd(c.user_id)}
-                                                                      disabled={isProcessingAction}
-                                                                      className="text-xs bg-red-500/50 px-2 py-1 rounded hover:bg-red-500/80 disabled:bg-gray-500"
-                                                                  >
-                                                                      <Target size={12} className="inline mr-1"/>Attack
-                                                                  </button>
+                                                              {c.user_id !== currentUser.id && (
+                                                                  <div className="flex gap-2">
+                                                                      <button
+                                                                          onClick={() => handleAttackAd(c.user_id)}
+                                                                          disabled={isProcessingAction}
+                                                                          className="flex items-center gap-1 px-2 py-1 text-sm bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded"
+                                                                          title="Launch attack ad"
+                                                                      >
+                                                                          <Target size={16} /> Attack
+                                                                      </button>
+                                                                      <button
+                                                                          onClick={() => handleSupport(c.id)}
+                                                                          disabled={isProcessingAction}
+                                                                          className="flex items-center gap-1 px-2 py-1 text-sm bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded"
+                                                                          title="Support campaign"
+                                                                      >
+                                                                          <CheckCircle size={16} /> Support
+                                                                      </button>
+                                                                  </div>
                                                               )}
                                                             </div>
                                                         </div>
