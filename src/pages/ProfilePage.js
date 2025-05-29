@@ -3,7 +3,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiCall } from '../api';
 import { stanceScale, allStates, stateData as allStateData } from '../state-data';
-import { Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, Copy, Check, image-up, AlertTriangle, Lock, Settings as SettingsIcon, Trash2, UserCircle2 } from 'lucide-react';
+import { 
+    Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, 
+    Copy, // <-- Make sure commas are between ALL icon names
+    Check, AlertTriangle, Lock, Settings as SettingsIcon, ImageUp, // <-- Ensure UploadCloud is the correct name
+    Trash2, UserCircle2 
+} from 'lucide-react';
 import PasswordChangeModal from '../components/PasswordChangeModal';
 
 // Helper to get stance label
