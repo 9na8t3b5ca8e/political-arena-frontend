@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiCall } from '../api';
-import { Target, BarChart2, LogOut, CheckCircle, XCircle } from 'lucide-react'; // Added LogOut, CheckCircle, XCircle
-import { stanceScale } from '../state-data'; // Assuming stanceScale is correctly exported from your state-data file
+import { Target, BarChart2, LogOut, CheckCircle, XCircle, Award } from 'lucide-react';
+import { stanceScale } from '../state-data'; 
 
 // Helper function to get the descriptive label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value,10))?.label || 'Moderate';
@@ -29,10 +29,9 @@ export default function StatePage({ currentUser, setCurrentUser }) {
   const [successMessage, setSuccessMessage] = useState('');
 
   const [selectedElection, setSelectedElection] = useState(null);
-  // UPDATED: Changed pollingData state to handle an object or null
   const [pollingData, setPollingData] = useState(null);
   const [loadingElectionDetails, setLoadingElectionDetails] = useState(false);
-  const [isProcessingAction, setIsProcessingAction] = useState(false); // For filing or withdrawing
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
 
   const fetchStateData = useCallback(async () => {
     setLoading(true);
@@ -88,14 +87,14 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     clearMessages();
     if (selectedElection && selectedElection.id === electionId) {
         setSelectedElection(null);
-        setPollingData(null); // UPDATED: Clear polling data when hiding details
+        setPollingData(null);
         return;
     }
     try {
         setLoadingElectionDetails(true);
         const electionDetailsResult = await apiCall(`/elections/${electionId}`);
         setSelectedElection(electionDetailsResult);
-        setPollingData(null); // UPDATED: Clear old polling data when viewing a new election
+        setPollingData(null);
     } catch (err) { setError(err.message); }
     finally { setLoadingElectionDetails(false); }
   };
@@ -133,10 +132,10 @@ export default function StatePage({ currentUser, setCurrentUser }) {
           }
           const res = await apiCall(`/elections/${electionId}/file`, { method: 'POST' });
           setSuccessMessage(res.message);
-          setCurrentUser(prev => ({...prev, campaign_funds: res.newCampaignFunds !== undefined ? res.newCampaignFunds : prev.campaign_funds - filingFee})); // Use newCampaignFunds from API
+          setCurrentUser(prev => ({...prev, campaign_funds: res.newCampaignFunds !== undefined ? res.newCampaignFunds : prev.campaign_funds - filingFee}));
 
           // Refresh data
-          await fetchStateData(); // Re-fetch all state data
+          await fetchStateData();
           if(selectedElection && selectedElection.id === electionId){
              const electionDetailsResult = await apiCall(`/elections/${electionId}`);
              setSelectedElection(electionDetailsResult);
@@ -177,6 +176,27 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     }
   };
 
+  // --- PHASE 3: ELECTION GROUPING LOGIC ---
+  const electionsByOffice = stateDetails?.active_elections?.reduce((acc, election) => {
+      const key = `${election.office}-${election.election_year}`;
+      if (!acc[key]) {
+          acc[key] = {
+              title: `${election.office} (${election.election_year})`,
+              type: election.type, // Store top-level type for sorting general elections
+              elections: []
+          };
+      }
+      acc[key].elections.push(election);
+      return acc;
+  }, {});
+
+  const sortedElectionGroups = Object.values(electionsByOffice || {}).sort((a,b) => {
+    // Logic to sort general elections to the top if needed, otherwise by title
+    if (a.elections[0].type === 'general' && b.elections[0].type !== 'general') return -1;
+    if (b.elections[0].type === 'general' && a.elections[0].type !== 'general') return 1;
+    return a.title.localeCompare(b.title);
+  });
+  // --- END PHASE 3 LOGIC ---
 
   if (loading && !stateDetails) return <div className="text-center py-10 text-gray-400">Loading state data for {decodedStateName}...</div>;
   if (error && !stateDetails && !loading) return <div className="bg-red-500/20 text-red-400 p-4 rounded-lg">{error}</div>;
@@ -252,124 +272,142 @@ export default function StatePage({ currentUser, setCurrentUser }) {
 
           {/* Active Elections Section */}
           <div className="bg-gray-800 p-4 rounded-lg shadow-xl mt-6">
-            <h3 className="text-xl font-semibold mb-3 text-blue-200 border-b border-gray-700 pb-2">Active Elections in {decodedStateName} ({stateDetails.active_elections?.length || 0})</h3>
-            {stateDetails.active_elections?.length > 0 ? (
-              <div className="space-y-4">
-                {stateDetails.active_elections.map(election => {
-                    let isUserFiledInThisElection = election.candidates?.some(c => c.user_id === currentUser.id);
+            <h3 className="text-xl font-semibold mb-3 text-blue-200 border-b border-gray-700 pb-2">Active Elections in {decodedStateName}</h3>
+            {sortedElectionGroups?.length > 0 ? (
+              <div className="space-y-6">
+              {/* --- PHASE 3: RENDER GROUPED ELECTIONS --- */}
+              {sortedElectionGroups.map(group => (
+                  <div key={group.title} className="bg-gray-900/50 p-4 rounded-lg">
+                      <h4 className="text-lg font-bold text-gray-100 mb-3 border-b border-gray-700 pb-2 flex items-center">
+                          <Award size={20} className="mr-3 text-yellow-400"/>
+                          {group.title}
+                      </h4>
+                      <div className="space-y-4">
+                        {group.elections.map(election => {
+                          let isUserFiledInThisElection = election.candidates?.some(c => c.user_id === currentUser.id);
 
-                    if (selectedElection && selectedElection.id === election.id) {
-                         isUserFiledInThisElection = selectedElection.candidates?.some(c => c.user_id === currentUser.id);
-                    }
+                          if (selectedElection && selectedElection.id === election.id) {
+                              isUserFiledInThisElection = selectedElection.candidates?.some(c => c.user_id === currentUser.id);
+                          }
 
-                    const timeInfo = formatTime(election.filing_deadline);
-                    const canFile = currentUser.home_state === decodedStateName && election.status === 'accepting_candidates' && !timeInfo.hasPassed;
-                    const canWithdraw = isUserFiledInThisElection && election.status === 'accepting_candidates' && !timeInfo.hasPassed;
+                          const timeInfo = formatTime(election.filing_deadline);
+                          const canFile = currentUser.home_state === decodedStateName && election.status === 'accepting_candidates' && !timeInfo.hasPassed && election.party === currentUser.party;
+                          const canWithdraw = isUserFiledInThisElection && election.status === 'accepting_candidates' && !timeInfo.hasPassed;
+                          const isGeneralElection = election.type === 'general';
 
-                    return (
-                        <div key={election.id} className="bg-gray-700/70 p-4 rounded-md shadow">
-                            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-2">
-                                <h4 className="text-lg font-medium text-gray-100">{election.office} <span className={`text-xs px-2 py-0.5 rounded-full ml-2 ${election.type === 'primary' ? 'bg-yellow-500/30 text-yellow-300' : 'bg-green-500/30 text-green-300'}`}>{election.type}</span></h4>
-                                <span className="text-xs mt-1 sm:mt-0 px-2 py-1 bg-gray-600 text-gray-300 rounded-full">{election.status.replace(/_/g, ' ')}</span>
-                            </div>
-                            <p className="text-sm text-gray-400 mb-1">
-                              Filing Closes: {timeInfo.relative}
-                            </p>
-                            <p className="text-xs text-gray-500 mb-3">
-                                ({timeInfo.absolute})
-                            </p>
+                          return (
+                              <div key={election.id} className="bg-gray-700/70 p-4 rounded-md shadow">
+                                  <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-2">
+                                      <h5 className="text-md font-medium text-gray-200 capitalize">
+                                        {isGeneralElection ? 'General Election' : `${election.party} ${election.type}`}
+                                      </h5>
+                                      <span className="text-xs mt-1 sm:mt-0 px-2 py-1 bg-gray-600 text-gray-300 rounded-full">{election.status.replace(/_/g, ' ')}</span>
+                                  </div>
+                                  
+                                  {!isGeneralElection && (
+                                    <>
+                                    <p className="text-sm text-gray-400 mb-1">
+                                      Filing Closes: {timeInfo.relative}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mb-3">
+                                        ({timeInfo.absolute})
+                                    </p>
+                                    </>
+                                  )}
 
-                            <div className="flex flex-wrap gap-2 items-center">
-                                {canFile && !isUserFiledInThisElection && (
-                                    <button
-                                        onClick={() => handleFileForElection(election.id, election.filing_fee)}
-                                        disabled={isProcessingAction}
-                                        className="bg-green-600 text-xs px-3 py-1.5 rounded hover:bg-green-700 disabled:bg-gray-500 flex items-center"
-                                    >
-                                        {isProcessingAction ? 'Processing...' : `File ($${election.filing_fee?.toLocaleString() || '0'})`}
-                                    </button>
-                                )}
-                                 {isUserFiledInThisElection && (
-                                    <span className="text-xs px-3 py-1.5 rounded bg-green-500/30 text-green-300 flex items-center">
-                                        <CheckCircle size={14} className="inline mr-1.5"/> Filed
-                                    </span>
-                                )}
-                                {canWithdraw && (
-                                     <button
-                                        onClick={() => handleWithdrawFromElection(election.id)}
-                                        disabled={isProcessingAction}
-                                        className="bg-yellow-600 text-xs px-3 py-1.5 rounded hover:bg-yellow-700 disabled:bg-gray-500 flex items-center"
-                                    >
-                                        <LogOut size={12} className="inline mr-1.5"/>
-                                        {isProcessingAction ? 'Processing...' : 'Withdraw'}
-                                    </button>
-                                )}
-                                 {timeInfo.hasPassed && election.status === 'accepting_candidates' && (
-                                     <span className="text-xs px-3 py-1.5 rounded bg-red-500/30 text-red-300">Filing Closed</span>
-                                 )}
-                                <button onClick={() => handleViewElection(election.id)} className="text-xs bg-blue-600 px-3 py-1.5 rounded hover:bg-blue-500">
-                                    {selectedElection?.id === election.id ? 'Hide Details' : 'View Details'}
-                                </button>
-                            </div>
+                                  <div className="flex flex-wrap gap-2 items-center">
+                                      {!isGeneralElection && canFile && !isUserFiledInThisElection && (
+                                          <button
+                                              onClick={() => handleFileForElection(election.id, election.filing_fee)}
+                                              disabled={isProcessingAction}
+                                              className="bg-green-600 text-xs px-3 py-1.5 rounded hover:bg-green-700 disabled:bg-gray-500 flex items-center"
+                                          >
+                                              {isProcessingAction ? 'Processing...' : `File ($${election.filing_fee?.toLocaleString() || '0'})`}
+                                          </button>
+                                      )}
+                                      {isUserFiledInThisElection && (
+                                          <span className="text-xs px-3 py-1.5 rounded bg-green-500/30 text-green-300 flex items-center">
+                                              <CheckCircle size={14} className="inline mr-1.5"/> Filed
+                                          </span>
+                                      )}
+                                      {!isGeneralElection && canWithdraw && (
+                                          <button
+                                              onClick={() => handleWithdrawFromElection(election.id)}
+                                              disabled={isProcessingAction}
+                                              className="bg-yellow-600 text-xs px-3 py-1.5 rounded hover:bg-yellow-700 disabled:bg-gray-500 flex items-center"
+                                          >
+                                              <LogOut size={12} className="inline mr-1.5"/>
+                                              {isProcessingAction ? 'Processing...' : 'Withdraw'}
+                                          </button>
+                                      )}
+                                      {!isGeneralElection && timeInfo.hasPassed && election.status === 'accepting_candidates' && (
+                                          <span className="text-xs px-3 py-1.5 rounded bg-red-500/30 text-red-300">Filing Closed</span>
+                                      )}
+                                      <button onClick={() => handleViewElection(election.id)} className="text-xs bg-blue-600 px-3 py-1.5 rounded hover:bg-blue-500">
+                                          {selectedElection?.id === election.id ? 'Hide Details' : 'View Details'}
+                                      </button>
+                                  </div>
 
-                            {selectedElection && selectedElection.id === election.id && (
-                                <div className="mt-4 pt-3 border-t border-gray-600 space-y-3">
-                                    {loadingElectionDetails && <p className="text-sm text-gray-400">Loading election details...</p>}
-                                    <h5 className="font-semibold text-gray-200 text-sm">Candidates ({selectedElection.candidates?.length || 0}):</h5>
-                                    {selectedElection.candidates?.length > 0 ? (
-                                        <ul className="text-xs text-gray-300 list-disc list-inside pl-4 space-y-1">
-                                            {selectedElection.candidates.map(c => (
-                                                <li key={c.user_id} className="flex justify-between items-center">
-                                                    <span>
-                                                        <Link to={`/profile/${c.user_id}`} className="hover:text-blue-400 font-medium">{c.first_name} {c.last_name}</Link>
-                                                        <span className="text-gray-400"> ({c.party || 'N/A'})</span>
-                                                    </span>
-                                                    {currentUser.id !== c.user_id && selectedElection.status === 'campaign_active' && (
-                                                        <button
-                                                            onClick={() => handleAttackAd(c.user_id)}
-                                                            disabled={isProcessingAction}
-                                                            className="text-xs bg-red-500/50 px-2 py-0.5 rounded hover:bg-red-500/80 disabled:bg-gray-500"
-                                                        >
-                                                            <Target size={12} className="inline mr-1"/>Attack
-                                                        </button>
-                                                    )}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : <p className="text-xs text-gray-500 pl-4">No candidates have filed yet.</p>}
+                                  {selectedElection && selectedElection.id === election.id && (
+                                      <div className="mt-4 pt-3 border-t border-gray-600 space-y-3">
+                                          {loadingElectionDetails && <p className="text-sm text-gray-400">Loading election details...</p>}
+                                          <h6 className="font-semibold text-gray-200 text-sm">Candidates ({selectedElection.candidates?.length || 0}):</h6>
+                                          {selectedElection.candidates?.length > 0 ? (
+                                              <ul className="text-xs text-gray-300 list-disc list-inside pl-4 space-y-1">
+                                                  {selectedElection.candidates.map(c => (
+                                                      <li key={c.user_id} className="flex justify-between items-center">
+                                                          <span>
+                                                              <Link to={`/profile/${c.user_id}`} className="hover:text-blue-400 font-medium">{c.first_name} {c.last_name}</Link>
+                                                              <span className="text-gray-400"> ({c.party || 'N/A'})</span>
+                                                          </span>
+                                                          {currentUser.id !== c.user_id && selectedElection.status === 'campaign_active' && (
+                                                              <button
+                                                                  onClick={() => handleAttackAd(c.user_id)}
+                                                                  disabled={isProcessingAction}
+                                                                  className="text-xs bg-red-500/50 px-2 py-0.5 rounded hover:bg-red-500/80 disabled:bg-gray-500"
+                                                              >
+                                                                  <Target size={12} className="inline mr-1"/>Attack
+                                                              </button>
+                                                          )}
+                                                      </li>
+                                                  ))}
+                                              </ul>
+                                          ) : <p className="text-xs text-gray-500 pl-4">{isGeneralElection ? "No candidates have won their primaries yet." : "No candidates have filed yet."}</p>}
 
-                                    {selectedElection.status === 'campaign_active' && selectedElection.candidates?.length > 0 && (
-                                         <button
-                                            onClick={() => handleViewPolling(selectedElection.id)}
-                                            disabled={loadingElectionDetails}
-                                            className="text-xs bg-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-500 disabled:bg-gray-500"
-                                        >
-                                            <BarChart2 size={12} className="inline mr-1"/> View Polling
-                                        </button>
-                                    )}
-                                    {/* UPDATED: Polling display logic */}
-                                    {pollingData && pollingData.poll_data ? (
-                                        <div className="bg-gray-600/40 p-3 rounded-md mt-2">
-                                            <h6 className="font-semibold text-sm mb-1 text-gray-200">
-                                                Poll by: <span className="font-normal">{pollingData.polling_firm}</span>
-                                            </h6>
-                                            <p className="text-xs text-gray-400 mb-2">
-                                                Margin of Error: +/- {pollingData.margin_of_error}%
-                                            </p>
-                                            <ul className="text-sm space-y-1 text-gray-300">
-                                                {pollingData.poll_data.map(p => <li key={p.user_id}>{p.username || `${p.first_name} ${p.last_name}`}: {p.percentage}%</li>)}
-                                            </ul>
-                                        </div>
-                                    ) : (
-                                        pollingData && pollingData.length === 0 && (
-                                            <p className="text-xs text-gray-500 mt-2">No polls available for this election yet.</p>
-                                        )
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
+                                          {selectedElection.status === 'campaign_active' && selectedElection.candidates?.length > 0 && (
+                                              <button
+                                                  onClick={() => handleViewPolling(selectedElection.id)}
+                                                  disabled={loadingElectionDetails}
+                                                  className="text-xs bg-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-500 disabled:bg-gray-500"
+                                              >
+                                                  <BarChart2 size={12} className="inline mr-1"/> View Polling
+                                              </button>
+                                          )}
+                                          {pollingData && pollingData.poll_data ? (
+                                              <div className="bg-gray-600/40 p-3 rounded-md mt-2">
+                                                  <h6 className="font-semibold text-sm mb-1 text-gray-200">
+                                                      Poll by: <span className="font-normal">{pollingData.polling_firm}</span>
+                                                  </h6>
+                                                  <p className="text-xs text-gray-400 mb-2">
+                                                      Margin of Error: +/- {pollingData.margin_of_error}%
+                                                  </p>
+                                                  <ul className="text-sm space-y-1 text-gray-300">
+                                                      {pollingData.poll_data.map(p => <li key={p.user_id}>{p.username || `${p.first_name} ${p.last_name}`}: {p.percentage}%</li>)}
+                                                  </ul>
+                                              </div>
+                                          ) : (
+                                              pollingData && pollingData.length === 0 && (
+                                                  <p className="text-xs text-gray-500 mt-2">No polls available for this election yet.</p>
+                                              )
+                                          )}
+                                      </div>
+                                  )}
+                              </div>
+                          );
+                        })}
+                      </div>
+                  </div>
+              ))}
               </div>
             ) : <p className="text-gray-500 text-center py-5">No active elections in {decodedStateName} at this time.</p>}
           </div>
