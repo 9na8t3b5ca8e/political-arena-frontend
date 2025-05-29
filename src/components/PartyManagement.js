@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { formatCurrency } from '../utils/formatters';
 import { apiCall } from '../api';
 
 const PartyManagement = ({ partyId }) => {
-    const { user } = useAuth();
     const [partyDetails, setPartyDetails] = useState(null);
     const [candidates, setCandidates] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -14,6 +11,13 @@ const PartyManagement = ({ partyId }) => {
     const [targetMemberId, setTargetMemberId] = useState('');
     const [platform, setPlatform] = useState('');
     const [selectedPosition, setSelectedPosition] = useState('');
+
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+        }).format(amount);
+    };
 
     useEffect(() => {
         const fetchData = async () => {

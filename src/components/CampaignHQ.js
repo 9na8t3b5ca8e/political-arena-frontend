@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { useAuth } from '../contexts/AuthContext';
-import { formatCurrency } from '../utils/formatters';
+import { apiCall } from '../api';
 
 const CampaignHQ = () => {
-    const { user } = useAuth();
     const [availableStaff, setAvailableStaff] = useState([]);
     const [hiredStaff, setHiredStaff] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -14,11 +11,11 @@ const CampaignHQ = () => {
         const fetchData = async () => {
             try {
                 const [availableRes, hiredRes] = await Promise.all([
-                    axios.get('/api/staff/available'),
-                    axios.get('/api/staff/hired')
+                    apiCall('/staff/available'),
+                    apiCall('/staff/hired')
                 ]);
-                setAvailableStaff(availableRes.data);
-                setHiredStaff(hiredRes.data);
+                setAvailableStaff(availableRes);
+                setHiredStaff(hiredRes);
                 setLoading(false);
             } catch (err) {
                 setError('Failed to load campaign staff data');
@@ -31,24 +28,37 @@ const CampaignHQ = () => {
 
     const handleHire = async (staffTypeId) => {
         try {
-            await axios.post('/api/staff/hire', { staffTypeId });
+            await apiCall('/staff/hire', { 
+                method: 'POST',
+                body: JSON.stringify({ staffTypeId })
+            });
             // Refresh hired staff list
-            const hiredRes = await axios.get('/api/staff/hired');
-            setHiredStaff(hiredRes.data);
+            const hiredRes = await apiCall('/staff/hired');
+            setHiredStaff(hiredRes);
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to hire staff member');
+            setError(err.message || 'Failed to hire staff member');
         }
     };
 
     const handleFire = async (hiredStaffId) => {
         try {
-            await axios.post('/api/staff/fire', { hiredStaffId });
+            await apiCall('/staff/fire', { 
+                method: 'POST',
+                body: JSON.stringify({ hiredStaffId })
+            });
             // Refresh hired staff list
-            const hiredRes = await axios.get('/api/staff/hired');
-            setHiredStaff(hiredRes.data);
+            const hiredRes = await apiCall('/staff/hired');
+            setHiredStaff(hiredRes);
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to fire staff member');
+            setError(err.message || 'Failed to fire staff member');
         }
+    };
+
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+        }).format(amount);
     };
 
     if (loading) return <div className="p-4">Loading...</div>;

@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import PasswordChangeModal from '../components/PasswordChangeModal';
 import ActiveCampaignsCard from '../components/ActiveCampaignsCard';
+import CampaignHQ from '../components/CampaignHQ';
+import PartyManagement from '../components/PartyManagement';
 
 // Helper to get stance label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value, 10))?.label || 'Moderate';
@@ -539,6 +541,18 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 userId={profileData?.user_id} 
                 isOwnProfile={isOwnProfile} 
             />
+            {isOwnProfile && profileData?.party_id && (
+                <>
+                    <CampaignHQ />
+                    <PartyManagement partyId={profileData.party_id} />
+                </>
+            )}
+            {isOwnProfile && !profileData?.party_id && (
+                 <div className="p-4 bg-gray-800 rounded-lg mt-4">
+                     <h2 className="text-xl font-bold mb-2">Party Management</h2>
+                     <p className="text-gray-400">Join a party to access party management features.</p>
+                 </div>
+            )}
         </>
     );
 }
