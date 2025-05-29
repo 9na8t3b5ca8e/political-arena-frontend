@@ -357,42 +357,48 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                                           {loadingElectionDetails && <p className="text-sm text-gray-400">Loading election details...</p>}
                                           <h6 className="font-semibold text-gray-200 text-sm">Candidates ({selectedElection.candidates?.length || 0}):</h6>
                                           {selectedElection.candidates?.length > 0 ? (
-                                              <div className="text-xs text-gray-300 list-disc list-inside pl-4 space-y-2">
+                                              <div className="space-y-2">
                                                   {selectedElection.candidates.map(c => (
-                                                      <li key={c.user_id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                                                          <div className="flex-grow">
-                                                              <Link to={`/profile/${c.user_id}`} className="hover:text-blue-400 font-medium">{c.first_name} {c.last_name}</Link>
-                                                              <span className="text-gray-400"> ({c.party || 'N/A'}) - </span>
-                                                              <span className="text-green-400">${c.campaign_funds?.toLocaleString()}</span>
-                                                          </div>
-                                                          <div className="flex gap-2 items-center mt-1 sm:mt-0">
-                                                            <button onClick={() => handleToggleFinance(c.election_candidate_id)} className="text-xs bg-teal-600 px-2 py-0.5 rounded hover:bg-teal-500">
-                                                              <DollarSign size={12} className="inline mr-1"/>Finance
-                                                            </button>
-                                                            {currentUser.id !== c.user_id && selectedElection.status === 'campaign_active' && (
-                                                                <button
-                                                                    onClick={() => handleAttackAd(c.user_id)}
-                                                                    disabled={isProcessingAction}
-                                                                    className="text-xs bg-red-500/50 px-2 py-0.5 rounded hover:bg-red-500/80 disabled:bg-gray-500"
-                                                                >
-                                                                    <Target size={12} className="inline mr-1"/>Attack
-                                                                </button>
-                                                            )}
-                                                          </div>
-                                                      </li>
+                                                    <React.Fragment key={c.user_id}>
+                                                      <div className="bg-gray-600/30 p-2 rounded-md">
+                                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                                                            <div className="flex-grow">
+                                                                <Link to={`/profile/${c.user_id}`} className="hover:text-blue-400 font-medium">{c.first_name} {c.last_name}</Link>
+                                                                <span className="text-gray-400 text-xs"> ({c.party || 'N/A'}) - </span>
+                                                                <span className="text-green-400 text-xs">${c.campaign_funds?.toLocaleString()}</span>
+                                                            </div>
+                                                            <div className="flex gap-2 items-center mt-1 sm:mt-0">
+                                                              <button onClick={() => handleToggleFinance(c.election_candidate_id)} className="text-xs bg-teal-600 px-2 py-1 rounded hover:bg-teal-500">
+                                                                <DollarSign size={12} className="inline mr-1"/>Finance
+                                                              </button>
+                                                              {currentUser.id !== c.user_id && selectedElection.status === 'campaign_active' && (
+                                                                  <button
+                                                                      onClick={() => handleAttackAd(c.user_id)}
+                                                                      disabled={isProcessingAction}
+                                                                      className="text-xs bg-red-500/50 px-2 py-1 rounded hover:bg-red-500/80 disabled:bg-gray-500"
+                                                                  >
+                                                                      <Target size={12} className="inline mr-1"/>Attack
+                                                                  </button>
+                                                              )}
+                                                            </div>
+                                                        </div>
+                                                        {/* FIX: Render the widget here, inside the map, when this candidate is selected */}
+                                                        {selectedCandidateForFinance === c.election_candidate_id && (
+                                                            <div className="mt-2">
+                                                                <CandidateFinanceWidget
+                                                                    candidate={c}
+                                                                    currentUser={currentUser}
+                                                                    setCurrentUser={setCurrentUser}
+                                                                    onClose={() => setSelectedCandidateForFinance(null)}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                      </div>
+                                                    </React.Fragment>
                                                   ))}
                                               </div>
                                           ) : <p className="text-xs text-gray-500 pl-4">{isGeneralElection ? "No candidates have won their primaries yet." : "No candidates have filed yet."}</p>}
                                           
-                                          {selectedCandidateForFinance && (
-                                            <CandidateFinanceWidget
-                                                candidate={selectedElection.candidates.find(c => c.election_candidate_id === selectedCandidateForFinance)}
-                                                currentUser={currentUser}
-                                                setCurrentUser={setCurrentUser}
-                                                onClose={() => setSelectedCandidateForFinance(null)}
-                                            />
-                                          )}
-
                                           {selectedElection.status === 'campaign_active' && selectedElection.candidates?.length > 0 && (
                                               <button
                                                   onClick={() => handleViewPolling(selectedElection.id)}
