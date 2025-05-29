@@ -6,8 +6,21 @@ import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
-import { allStates, stateData, stanceScale } from './state-data'; // Ensure stanceScale is exported
+import { allStates, stateData, stanceScale } from './state-data';
 import StatePage from './pages/StatePage'; 
+
+// --- REGISTRATION DROPDOWN OPTIONS (from ProfilePage.js) ---
+const genderOptions = ["Male", "Female", "Non-binary", "Other", "Prefer not to say"];
+const raceOptions = [
+    "White", "Black or African American", "Asian", "American Indian or Alaska Native",
+    "Native Hawaiian or Other Pacific Islander", "Hispanic or Latino", "Two or More Races", "Other", "Prefer not to say"
+];
+const religionOptions = [
+    "Christianity", "Judaism", "Islam", "Buddhism", "Hinduism", "Sikhism",
+    "Atheist", "Agnostic", "Spiritual but not religious", "None", "Other", "Prefer not to say"
+];
+const ageOptions = Array.from({ length: (90 - 18) + 1 }, (_, i) => 18 + i);
+
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -21,8 +34,7 @@ function App() {
       return;
     }
     try {
-      // NOTE: This API call was failing before. It should now work with the fixed routes.
-      const profile = await apiCall('/auth/profile'); 
+      const profile = await apiCall('/auth/profile');
       setCurrentUser(profile);
     } catch (error) {
       console.error("Failed to load profile, logging out.", error);
@@ -64,8 +76,7 @@ function App() {
     setLoading(true);
     loadUserProfile(); 
   }
-
-  // A simple reload on login success can also work to simplify state management
+  
   const handleLoginSuccess = () => {
       window.location.href = '/';
   }
@@ -114,7 +125,10 @@ function AuthRouter({ onAuthSuccess, onLoginSuccess }) {
 }
 
 const AuthScreen = ({ action, setAction, setProfileDataForSetup, onLoginSuccess }) => {
-    const [form, setForm] = useState({});
+    const [form, setForm] = useState({
+        // Set default empty strings for dropdowns to prevent uncontrolled component warnings
+        gender: '', race: '', religion: '', age: ''
+    });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
@@ -122,6 +136,8 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup, onLoginSuccess 
         e.preventDefault(); setLoading(true); setError('');
         try {
             if (action === 'register' && form.password !== form.confirmPassword) throw new Error("Passwords do not match.");
+            if (action === 'register' && (!form.gender || !form.race || !form.religion || !form.age)) throw new Error("Please complete all profile fields.");
+
             const response = await apiCall(`/auth/${action}`, { method: 'POST', body: JSON.stringify(form) });
             localStorage.setItem('authToken', response.token);
             
@@ -139,9 +155,9 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup, onLoginSuccess 
     const isRegister = action === 'register';
 
     return (
-        <div className="max-w-md mx-auto mt-20 p-6 bg-gray-800 rounded-lg shadow-xl">
+        <div className="max-w-md mx-auto mt-10 p-6 bg-gray-800 rounded-lg shadow-xl">
             <h2 className="text-2xl font-bold mb-6 text-center">{isRegister ? "Create Account" : "Login"}</h2>
-            {error && <p className="bg-red-500/20 text-red-400 p-2 rounded mb-4">{error}</p>}
+            {error && <p className="bg-red-500/20 text-red-400 p-2 rounded mb-4 text-center">{error}</p>}
             <form onSubmit={handleAuth} className="space-y-4">
                 {isRegister && (<div className="grid grid-cols-2 gap-4">
                     <input name="firstName" placeholder="First Name" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
@@ -152,15 +168,29 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup, onLoginSuccess 
                 <input name="password" type="password" placeholder="Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
                 {isRegister && <input name="confirmPassword" type="password" placeholder="Confirm Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>}
                 
-                {/* --- NEW FIELDS ADDED HERE --- */}
-                {isRegister && (<div className="grid grid-cols-2 gap-4">
-                    <input name="gender" placeholder="Gender" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                    <input name="age" type="number" placeholder="Age" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                </div>)}
-                {isRegister && (<div className="grid grid-cols-2 gap-4">
-                    <input name="race" placeholder="Race" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                    <input name="religion" placeholder="Religion" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                </div>)}
+                {/* --- NEW DROPDOWN FIELDS ADDED HERE --- */}
+                {isRegister && (
+                    <div className="pt-2 border-t border-gray-700 space-y-4">
+                         <div className="grid grid-cols-2 gap-4">
+                            <select name="gender" value={form.gender} onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full">
+                                <option value="">Select Gender</option>
+                                {genderOptions.map(g => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                             <select name="age" value={form.age} onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full">
+                                <option value="">Select Age</option>
+                                {ageOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                            </select>
+                        </div>
+                        <select name="race" value={form.race} onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full">
+                            <option value="">Select Race/Ethnicity</option>
+                            {raceOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <select name="religion" value={form.religion} onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full">
+                            <option value="">Select Religion</option>
+                            {religionOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+                )}
                 
                 <button type="submit" disabled={loading} className="w-full bg-blue-600 p-2 rounded hover:bg-blue-700 font-bold disabled:bg-gray-500">{loading ? "Loading..." : (isRegister ? "Register" : "Login")}</button>
                 <p className="text-center text-sm text-gray-400">
@@ -172,7 +202,6 @@ const AuthScreen = ({ action, setAction, setProfileDataForSetup, onLoginSuccess 
     );
 };
 
-// NOTE: The ProfileSetup component remains unchanged
 const ProfileSetup = ({ currentUser, onSetupComplete }) => {
     const [profileData, setProfileData] = useState({
         ...currentUser,
@@ -205,7 +234,8 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
         profileData.social_stance,
         profileData.home_state
     );
-
+    
+    // In ProfileSetup, the API call should go to /profile, not /auth/profile
     const handleUpdate = async (fieldKey, value) => {
         const localStateFieldKey = fieldKey; 
         let apiFieldKey = fieldKey;
@@ -221,6 +251,7 @@ const ProfileSetup = ({ currentUser, onSetupComplete }) => {
         
         try {
             setError('');
+            // Use the generic /profile endpoint for updates after the initial setup
             await apiCall('/profile', { method: 'PUT', body: JSON.stringify({ [apiFieldKey]: valToUpdate }) });
         } catch (err) {
             setError(`Failed to update ${localStateFieldKey}: ${err.message}`);
