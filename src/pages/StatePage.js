@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiCall } from '../api';
-import { Target, BarChart2, LogOut, CheckCircle, XCircle, Award } from 'lucide-react';
+import CandidateFinanceWidget from '../components/CandidateFinanceWidget'; // Import the new component
+import { Target, BarChart2, LogOut, CheckCircle, XCircle, Award, DollarSign } from 'lucide-react';
 import { stanceScale } from '../state-data'; 
 
 // Helper function to get the descriptive label
@@ -32,6 +33,9 @@ export default function StatePage({ currentUser, setCurrentUser }) {
   const [pollingData, setPollingData] = useState(null);
   const [loadingElectionDetails, setLoadingElectionDetails] = useState(false);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
+  
+  const [selectedCandidateForFinance, setSelectedCandidateForFinance] = useState(null);
+
 
   const fetchStateData = useCallback(async () => {
     setLoading(true);
@@ -85,6 +89,7 @@ export default function StatePage({ currentUser, setCurrentUser }) {
 
   const handleViewElection = async (electionId) => {
     clearMessages();
+    setSelectedCandidateForFinance(null);
     if (selectedElection && selectedElection.id === electionId) {
         setSelectedElection(null);
         setPollingData(null);
@@ -98,6 +103,14 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     } catch (err) { setError(err.message); }
     finally { setLoadingElectionDetails(false); }
   };
+  
+  const handleToggleFinance = (candidateId) => {
+    if(selectedCandidateForFinance === candidateId) {
+        setSelectedCandidateForFinance(null);
+    } else {
+        setSelectedCandidateForFinance(candidateId);
+    }
+  }
 
   const handleViewPolling = async (electionId) => {
       clearMessages();
@@ -159,7 +172,6 @@ export default function StatePage({ currentUser, setCurrentUser }) {
         if (res.newCampaignFunds !== undefined) {
             setCurrentUser(prev => ({ ...prev, campaign_funds: res.newCampaignFunds }));
         }
-        // Refresh data
         await fetchStateData();
         if(selectedElection && selectedElection.id === electionId){
            const electionDetailsResult = await apiCall(`/elections/${electionId}`);
@@ -176,13 +188,12 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     }
   };
 
-  // --- PHASE 3: ELECTION GROUPING LOGIC ---
   const electionsByOffice = stateDetails?.active_elections?.reduce((acc, election) => {
       const key = `${election.office}-${election.election_year}`;
       if (!acc[key]) {
           acc[key] = {
               title: `${election.office} (${election.election_year})`,
-              type: election.type, // Store top-level type for sorting general elections
+              type: election.type,
               elections: []
           };
       }
@@ -191,12 +202,10 @@ export default function StatePage({ currentUser, setCurrentUser }) {
   }, {});
 
   const sortedElectionGroups = Object.values(electionsByOffice || {}).sort((a,b) => {
-    // Logic to sort general elections to the top if needed, otherwise by title
     if (a.elections[0].type === 'general' && b.elections[0].type !== 'general') return -1;
     if (b.elections[0].type === 'general' && a.elections[0].type !== 'general') return 1;
     return a.title.localeCompare(b.title);
   });
-  // --- END PHASE 3 LOGIC ---
 
   if (loading && !stateDetails) return <div className="text-center py-10 text-gray-400">Loading state data for {decodedStateName}...</div>;
   if (error && !stateDetails && !loading) return <div className="bg-red-500/20 text-red-400 p-4 rounded-lg">{error}</div>;
@@ -208,11 +217,9 @@ export default function StatePage({ currentUser, setCurrentUser }) {
       {error && <div className="bg-red-500/20 text-red-400 p-3 rounded-lg mb-4 flex justify-between items-center"><span><XCircle size={18} className="inline mr-2"/>{error}</span><button onClick={clearMessages} className="text-red-300 hover:text-red-100">&times;</button></div>}
       {successMessage && <div className="bg-green-500/20 text-green-300 p-3 rounded-lg mb-4 flex justify-between items-center"><span><CheckCircle size={18} className="inline mr-2"/>{successMessage}</span><button onClick={clearMessages} className="text-green-200 hover:text-green-100">&times;</button></div>}
 
-
       {stateDetails && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* State Info Card */}
             <div className="bg-gray-800 p-4 rounded-lg shadow-xl">
               <h3 className="text-xl font-semibold mb-3 text-blue-200 border-b border-gray-700 pb-2">State Overview</h3>
               {stateDetails.ideology && (
@@ -255,7 +262,6 @@ export default function StatePage({ currentUser, setCurrentUser }) {
               </div>
             </div>
 
-            {/* Registered Politicians Card */}
             <div className="bg-gray-800 p-4 rounded-lg shadow-xl">
               <h3 className="text-xl font-semibold mb-3 text-blue-200 border-b border-gray-700 pb-2">Registered Politicians ({stateDetails.registered_politicians?.length || 0})</h3>
               {stateDetails.registered_politicians?.length > 0 ? (
@@ -270,12 +276,10 @@ export default function StatePage({ currentUser, setCurrentUser }) {
             </div>
           </div>
 
-          {/* Active Elections Section */}
           <div className="bg-gray-800 p-4 rounded-lg shadow-xl mt-6">
             <h3 className="text-xl font-semibold mb-3 text-blue-200 border-b border-gray-700 pb-2">Active Elections in {decodedStateName}</h3>
             {sortedElectionGroups?.length > 0 ? (
               <div className="space-y-6">
-              {/* --- PHASE 3: RENDER GROUPED ELECTIONS --- */}
               {sortedElectionGroups.map(group => (
                   <div key={group.title} className="bg-gray-900/50 p-4 rounded-lg">
                       <h4 className="text-lg font-bold text-gray-100 mb-3 border-b border-gray-700 pb-2 flex items-center">
@@ -353,32 +357,47 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                                           {loadingElectionDetails && <p className="text-sm text-gray-400">Loading election details...</p>}
                                           <h6 className="font-semibold text-gray-200 text-sm">Candidates ({selectedElection.candidates?.length || 0}):</h6>
                                           {selectedElection.candidates?.length > 0 ? (
-                                              <ul className="text-xs text-gray-300 list-disc list-inside pl-4 space-y-1">
+                                              <div className="text-xs text-gray-300 list-disc list-inside pl-4 space-y-2">
                                                   {selectedElection.candidates.map(c => (
-                                                      <li key={c.user_id} className="flex justify-between items-center">
-                                                          <span>
+                                                      <li key={c.user_id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                                                          <div className="flex-grow">
                                                               <Link to={`/profile/${c.user_id}`} className="hover:text-blue-400 font-medium">{c.first_name} {c.last_name}</Link>
-                                                              <span className="text-gray-400"> ({c.party || 'N/A'})</span>
-                                                          </span>
-                                                          {currentUser.id !== c.user_id && selectedElection.status === 'campaign_active' && (
-                                                              <button
-                                                                  onClick={() => handleAttackAd(c.user_id)}
-                                                                  disabled={isProcessingAction}
-                                                                  className="text-xs bg-red-500/50 px-2 py-0.5 rounded hover:bg-red-500/80 disabled:bg-gray-500"
-                                                              >
-                                                                  <Target size={12} className="inline mr-1"/>Attack
-                                                              </button>
-                                                          )}
+                                                              <span className="text-gray-400"> ({c.party || 'N/A'}) - </span>
+                                                              <span className="text-green-400">${c.campaign_funds?.toLocaleString()}</span>
+                                                          </div>
+                                                          <div className="flex gap-2 items-center mt-1 sm:mt-0">
+                                                            <button onClick={() => handleToggleFinance(c.election_candidate_id)} className="text-xs bg-teal-600 px-2 py-0.5 rounded hover:bg-teal-500">
+                                                              <DollarSign size={12} className="inline mr-1"/>Finance
+                                                            </button>
+                                                            {currentUser.id !== c.user_id && selectedElection.status === 'campaign_active' && (
+                                                                <button
+                                                                    onClick={() => handleAttackAd(c.user_id)}
+                                                                    disabled={isProcessingAction}
+                                                                    className="text-xs bg-red-500/50 px-2 py-0.5 rounded hover:bg-red-500/80 disabled:bg-gray-500"
+                                                                >
+                                                                    <Target size={12} className="inline mr-1"/>Attack
+                                                                </button>
+                                                            )}
+                                                          </div>
                                                       </li>
                                                   ))}
-                                              </ul>
+                                              </div>
                                           ) : <p className="text-xs text-gray-500 pl-4">{isGeneralElection ? "No candidates have won their primaries yet." : "No candidates have filed yet."}</p>}
+                                          
+                                          {selectedCandidateForFinance && (
+                                            <CandidateFinanceWidget
+                                                candidate={selectedElection.candidates.find(c => c.election_candidate_id === selectedCandidateForFinance)}
+                                                currentUser={currentUser}
+                                                setCurrentUser={setCurrentUser}
+                                                onClose={() => setSelectedCandidateForFinance(null)}
+                                            />
+                                          )}
 
                                           {selectedElection.status === 'campaign_active' && selectedElection.candidates?.length > 0 && (
                                               <button
                                                   onClick={() => handleViewPolling(selectedElection.id)}
                                                   disabled={loadingElectionDetails}
-                                                  className="text-xs bg-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-500 disabled:bg-gray-500"
+                                                  className="text-xs bg-indigo-600 px-3 py-1.5 rounded hover:bg-indigo-500 disabled:bg-gray-500 mt-2"
                                               >
                                                   <BarChart2 size={12} className="inline mr-1"/> View Polling
                                               </button>
