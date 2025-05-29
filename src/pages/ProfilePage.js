@@ -5,8 +5,8 @@ import { apiCall } from '../api';
 import { stanceScale, allStates, stateData as allStateData } from '../state-data';
 import { 
     Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail, 
-    Copy, // <-- Make sure commas are between ALL icon names
-    Check, AlertTriangle, Lock, Settings as SettingsIcon, ImageUp, // <-- Ensure UploadCloud is the correct name
+    Copy,
+    Check, AlertTriangle, Lock, Settings as SettingsIcon, ImageUp, 
     Trash2, UserCircle2 
 } from 'lucide-react';
 import PasswordChangeModal from '../components/PasswordChangeModal';
@@ -75,28 +75,35 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     const initializeEditableFields = useCallback((data) => {
         if (data) {
             const newEditableFields = {
-                firstName: data.first_name || '', lastName: data.last_name || '',
-                party: data.party || '', home_state: data.home_state || '',
+                firstName: data.first_name || '', 
+                lastName: data.last_name || '',
+                // Explicitly include username and email for consistency, though not edited here
+                username: data.username || '',
+                email: data.email || '',
+                party: data.party || '', 
+                home_state: data.home_state || '',
                 economic_stance: parseInt(data.economic_stance, 10) || 4,
                 social_stance: parseInt(data.social_stance, 10) || 4,
-                bio: data.bio || '', gender: data.gender || '',
-                race: data.race || '', religion: data.religion || '',
+                bio: data.bio || '', 
+                gender: data.gender || '',
+                race: data.race || '', 
+                religion: data.religion || '',
                 age: data.age || '',
-                profile_picture_url: data.profile_picture_url || null, // Include this
+                profile_picture_url: data.profile_picture_url || null,
             };
             setEditableFields(newEditableFields);
             setBioCharCount(data.bio?.length || 0);
             setProfilePicturePreview(data.profile_picture_url || null); 
-            // Calculate initial PC costs when initializing fields based on current profile data
-            if (profileData) { // Check if profileData (representing the *current saved* state) exists
+            
+            if (profileData) {
                  setEconStancePCCost(Math.abs(newEditableFields.economic_stance - profileData.economic_stance) * STANCE_CHANGE_PC_PER_POSITION);
                  setSocialStancePCCost(Math.abs(newEditableFields.social_stance - profileData.social_stance) * STANCE_CHANGE_PC_PER_POSITION);
-            } else { // If profileData is not yet set (e.g., initial load), cost is 0
+            } else { 
                 setEconStancePCCost(0);
                 setSocialStancePCCost(0);
             }
         }
-    }, [profileData]); // profileData is a dependency to correctly calculate initial stance change costs
+    }, [profileData]);
 
 
     const loadProfile = useCallback(async () => {
@@ -116,15 +123,14 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
 
             const data = viewingOwnProfile ? currentUser : await apiCall(`/profiles/${targetUserId}`);
             setProfileData(data); 
-            // initializeEditableFields will be called by the useEffect watching profileData changes
             
-            if (data.home_state && data.economic_stance !== undefined && data.social_stance !== undefined) {
+            if (data && data.home_state && data.economic_stance !== undefined && data.social_stance !== undefined) {
                 setAlignment(calculateStateAlignment(data.economic_stance, data.social_stance, data.home_state));
             } else {
                  setAlignment({ economicMatch: 'N/A', socialMatch: 'N/A', overallAlignment: 'N/A' });
             }
 
-            if (viewingOwnProfile && data.last_name_change_date) {
+            if (viewingOwnProfile && data && data.last_name_change_date) {
                 const lastChange = new Date(data.last_name_change_date);
                 let cooldownEnds = new Date(lastChange.valueOf()); 
                 cooldownEnds.setDate(cooldownEnds.getDate() + NAME_CHANGE_COOLDOWN_DAYS);
@@ -167,7 +173,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         if (currentFieldsSource && currentFieldsSource.home_state && currentFieldsSource.economic_stance !== undefined && currentFieldsSource.social_stance !== undefined) {
             setAlignment(calculateStateAlignment(currentFieldsSource.economic_stance, currentFieldsSource.social_stance, currentFieldsSource.home_state));
         }
-        // Update PC costs dynamically when editable stances change
         if (editMode && profileData && editableFields.economic_stance !== undefined) {
             setEconStancePCCost(Math.abs(editableFields.economic_stance - profileData.economic_stance) * STANCE_CHANGE_PC_PER_POSITION);
         }
@@ -201,15 +206,15 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             if (file.size > 5 * 1024 * 1024) { 
                 setError("File size too large. Max 5MB allowed.");
                 setSelectedProfilePictureFile(null);
-                setProfilePicturePreview(editableFields.profile_picture_url || null); // Revert to current or null
-                e.target.value = null; // Reset file input
+                setProfilePicturePreview(editableFields.profile_picture_url || null);
+                e.target.value = null;
                 return;
             }
             if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
                 setError("Invalid file type. Only JPG, PNG, GIF allowed.");
                 setSelectedProfilePictureFile(null);
-                setProfilePicturePreview(editableFields.profile_picture_url || null); // Revert
-                e.target.value = null; // Reset file input
+                setProfilePicturePreview(editableFields.profile_picture_url || null);
+                e.target.value = null;
                 return;
             }
             clearMessages();
@@ -229,21 +234,19 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         formData.append('profilePicture', selectedProfilePictureFile);
 
         try {
-            // apiCall needs to be adapted to handle FormData (non-JSON)
-            const response = await apiCall('/auth/profile/picture', {
+            // FIX: Corrected API endpoint
+            const response = await apiCall('/profile/picture', {
                 method: 'POST',
                 body: formData,
                 headers: { 
-                    // Let browser set Content-Type for FormData
                     ...(localStorage.getItem('authToken') && { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }) 
                 },
-            }, true); // Pass true to indicate this is not a JSON request
+            }, true); 
 
-            // Assuming backend now returns the full updated profile in response.updatedProfile
-            setProfileData(response.updatedProfile); // Update local profileData
-            if (setCurrentUser) setCurrentUser(response.updatedProfile); // Update global state
-            initializeEditableFields(response.updatedProfile); // Re-initialize editable fields
-            setSelectedProfilePictureFile(null); // Clear selected file
+            setProfileData(response.updatedProfile); 
+            if (setCurrentUser) setCurrentUser(response.updatedProfile); 
+            initializeEditableFields(response.updatedProfile); 
+            setSelectedProfilePictureFile(null); 
             setSuccess(response.message || "Profile picture updated.");
         } catch (err) {
             setError(err.message || "Failed to upload picture.");
@@ -257,11 +260,13 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         if (!window.confirm("Are you sure you want to remove your profile picture?")) return;
         setIsUploadingPicture(true); 
         try {
-            const response = await apiCall('/auth/profile/picture', { method: 'DELETE' });
+            // FIX: Corrected API endpoint
+            const response = await apiCall('/profile/picture', { method: 'DELETE' });
             setProfileData(response.updatedProfile); 
             if (setCurrentUser) setCurrentUser(response.updatedProfile);
             initializeEditableFields(response.updatedProfile);
             setSelectedProfilePictureFile(null);
+            setProfilePicturePreview(null); // Clear preview as well
             setSuccess(response.message || "Profile picture removed.");
         } catch (err) {
             setError(err.message || "Failed to remove picture.");
@@ -308,13 +313,19 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 payload.firstName = editableFields.firstName;
                 payload.lastName = editableFields.lastName;
             }
-            if (econStanceChanged) payload.economicStance = parseInt(editableFields.economic_stance, 10);
-            if (socialStanceChanged) payload.socialStance = parseInt(editableFields.social_stance, 10);
-            if (editableFields.bio !== profileData.bio) payload.bio = editableFields.bio;
-            if (editableFields.gender !== profileData.gender) payload.gender = editableFields.gender;
-            if (editableFields.race !== profileData.race) payload.race = editableFields.race;
-            if (editableFields.religion !== profileData.religion) payload.religion = editableFields.religion;
-            if (editableFields.age !== profileData.age) payload.age = editableFields.age ? parseInt(editableFields.age, 10) : null;
+            // Ensure that editableFields values are used if they exist, otherwise fall back to profileData
+            // This is important if not all fields are always present in editableFields
+            const sourceForUpdate = { ...profileData, ...editableFields };
+
+            if (econStanceChanged) payload.economicStance = parseInt(sourceForUpdate.economic_stance, 10);
+            if (socialStanceChanged) payload.socialStance = parseInt(sourceForUpdate.social_stance, 10);
+            if (sourceForUpdate.bio !== profileData.bio) payload.bio = sourceForUpdate.bio;
+            if (sourceForUpdate.gender !== profileData.gender) payload.gender = sourceForUpdate.gender;
+            if (sourceForUpdate.race !== profileData.race) payload.race = sourceForUpdate.race;
+            if (sourceForUpdate.religion !== profileData.religion) payload.religion = sourceForUpdate.religion;
+            if (sourceForUpdate.age !== profileData.age) payload.age = sourceForUpdate.age ? parseInt(sourceForUpdate.age, 10) : null;
+            if (sourceForUpdate.party !== profileData.party) payload.party = sourceForUpdate.party;
+            if (sourceForUpdate.home_state !== profileData.home_state) payload.homeState = sourceForUpdate.home_state;
             
             if (Object.keys(payload).length === 0) {
                 setSuccess("No changes were made to your profile.");
@@ -322,11 +333,12 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 return;
             }
             
-            const response = await apiCall('/auth/profile', { method: 'PUT', body: JSON.stringify(payload) });
+            // Endpoint for general profile updates should be /api/profile
+            const response = await apiCall('/profile', { method: 'PUT', body: JSON.stringify(payload) });
             
             setProfileData(response.updatedProfile);
             if (setCurrentUser) setCurrentUser(response.updatedProfile); 
-            initializeEditableFields(response.updatedProfile); // Ensure editable fields are synced
+            initializeEditableFields(response.updatedProfile);
             setEditMode(false);
             setSuccess(response.message || 'Profile updated successfully!');
             
@@ -349,8 +361,8 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     };
     
     const copyProfileLink = () => {
-        if (profileData && profileData.id) {
-            const link = `${window.location.origin}/profile/${profileData.id}`;
+        if (profileData && profileData.user_id) { // Use user_id as id might be for player_profiles table
+            const link = `${window.location.origin}/profile/${profileData.user_id}`;
             navigator.clipboard.writeText(link).then(() => {
                 setJustCopied(true);
                 setTimeout(() => setJustCopied(false), 2000);
@@ -378,7 +390,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 {error && <p className="bg-red-500/20 text-red-300 p-3 rounded text-sm mb-4 flex items-center"><AlertTriangle size={16} className="mr-2"/>{error}</p>}
                 {success && <p className="bg-green-500/20 text-green-300 p-3 rounded text-sm mb-4 flex items-center"><Check size={16} className="mr-2"/>{success}</p>}
                 
-                {isOwnProfile && ( <div className="mb-4 bg-gray-900/50 p-3 rounded-lg"> <label className="text-xs text-gray-400">Your Shareable Profile Link</label> <div className="flex items-center gap-2 mt-1"> <input type="text" readOnly value={`${window.location.origin}/profile/${profileData.id}`} className="w-full bg-gray-700 text-gray-300 p-1 rounded-md text-sm border-gray-600"/> <button onClick={copyProfileLink} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm flex items-center shrink-0"> {justCopied ? <Check size={16} className="mr-1.5"/> : <Copy size={16} className="mr-1.5"/>} {justCopied ? 'Copied!' : 'Copy'} </button> </div> </div> )}
+                {isOwnProfile && ( <div className="mb-4 bg-gray-900/50 p-3 rounded-lg"> <label className="text-xs text-gray-400">Your Shareable Profile Link</label> <div className="flex items-center gap-2 mt-1"> <input type="text" readOnly value={`${window.location.origin}/profile/${profileData.user_id}`} className="w-full bg-gray-700 text-gray-300 p-1 rounded-md text-sm border-gray-600"/> <button onClick={copyProfileLink} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm flex items-center shrink-0"> {justCopied ? <Check size={16} className="mr-1.5"/> : <Copy size={16} className="mr-1.5"/>} {justCopied ? 'Copied!' : 'Copy'} </button> </div> </div> )}
                 {isOwnProfile && isNameChangeCooldownActive && editMode && ( <div className="mb-4 bg-yellow-600/20 text-yellow-300 p-3 rounded text-sm flex items-center"> <Lock size={16} className="mr-2" /> Name fields are locked. You can change your name again on {nextNameChangeDate}. </div> )}
 
                 <div className="flex flex-col sm:flex-row items-center sm:items-start mb-6">
@@ -391,7 +403,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                     <UserCircle2 className="h-32 w-32 text-gray-500 border-4 border-gray-700 rounded-full p-2 mb-2"/>
                                 )}
                                 <label htmlFor="profilePictureInput" className="w-full text-center bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md cursor-pointer shadow-md text-xs flex items-center justify-center">
-                                    <image-up size={14} className="mr-1.5"/> Change Picture
+                                    <ImageUp size={14} className="mr-1.5"/> Change Picture 
                                 </label>
                                 <input type="file" id="profilePictureInput" className="hidden" accept="image/png, image/jpeg, image/gif" onChange={handleProfilePictureChange} />
                                 {selectedProfilePictureFile && (
@@ -399,7 +411,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                         {isUploadingPicture ? "Uploading..." : "Upload New Picture"}
                                     </button>
                                 )}
-                                 {editableFields.profile_picture_url && !selectedProfilePictureFile && ( // Show remove only if there's a picture and no new one selected
+                                 {editableFields.profile_picture_url && !selectedProfilePictureFile && (
                                     <button onClick={handleRemoveProfilePicture} disabled={isUploadingPicture} className="mt-2 w-full text-xs bg-red-600 hover:bg-red-700 text-white py-1 px-2 rounded">
                                         {isUploadingPicture ? "Removing..." : "Remove Picture"}
                                     </button>
@@ -415,13 +427,14 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                     </div>
                     
                     <div className="flex-grow text-center sm:text-left">
-                        <h2 className="text-3xl font-bold text-blue-300"> {profileData.first_name} {profileData.last_name} <span className="text-lg text-gray-400 ml-2">(@{profileData.username})</span> </h2> 
+                        {/* FIX: Defensive rendering for username */}
+                        <h2 className="text-3xl font-bold text-blue-300"> {profileData.first_name} {profileData.last_name} <span className="text-lg text-gray-400 ml-2">(@{profileData.username || 'N/A'})</span> </h2> 
                     </div>
                      {isOwnProfile && ( 
                         <div className="flex items-center gap-2 mt-3 sm:mt-0 sm:ml-auto shrink-0"> 
                             {editMode ? ( 
                                 <> <button onClick={handleSaveChanges} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Save size={16} className="mr-2"/> Save</button> 
-                                <button onClick={() => { setEditMode(false); clearMessages(); initializeEditableFields(profileData); setSelectedProfilePictureFile(null); /* Revert preview to saved URL */ setProfilePicturePreview(profileData.profile_picture_url || null);}} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">Cancel</button> </> 
+                                <button onClick={() => { setEditMode(false); clearMessages(); initializeEditableFields(profileData); setSelectedProfilePictureFile(null); setProfilePicturePreview(profileData.profile_picture_url || null);}} className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">Cancel</button> </> 
                             ) : ( 
                                 <>
                                 <button onClick={() => { initializeEditableFields(profileData); setEditMode(true); clearMessages();}} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><Edit3 size={16} className="mr-2"/> Edit Profile</button> 
@@ -454,8 +467,13 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                     {profileData.religion && <ReadOnlyField label="Religion" value={profileData.religion} />}
                                 </>
                             )}
-                            <ReadOnlyField label="Email" valueHtml={<>{profileData.email} <span className="text-xs text-gray-500 ml-1">(Not publicly shown)</span></>} icon={<Mail size={14}/>} /> 
-                            <ReadOnlyField label="Username" value={`@${profileData.username}`} icon={<User size={14}/>} />
+                            {/* FIX: Defensive rendering for email */}
+                            <ReadOnlyField 
+                                label="Email" 
+                                valueHtml={profileData.email ? <>{profileData.email} <span className="text-xs text-gray-500 ml-1">(Not publicly shown)</span></> : <span className="text-gray-500">Email not available</span>} 
+                                icon={<Mail size={14}/>} 
+                            /> 
+                            <ReadOnlyField label="Username" value={`@${profileData.username || 'N/A'}`} icon={<User size={14}/>} />
                         </InfoCard>
                         <InfoCard title="Political Stats" icon={<TrendingUp size={18}/>}>
                             <ReadOnlyField label="Approval Rating" value={`${profileData.approval_rating}%`} />
