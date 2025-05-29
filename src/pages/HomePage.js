@@ -6,7 +6,7 @@ import { apiCall } from '../api';
 // Fundraising sub-component (can stay here or move to components folder)
 const Fundraising = ({ onFundraise }) => (
     <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
-        <h3 className="font-bold text-lg mb-3 text-blue-200 border-b border-gray-700 pb-2">Actions</h3>
+        <h3 className="font-bold text-lg mb-3 text-blue-200 border-b border-gray-700 pb-2">Quick Actions</h3>
         <div className="space-y-2">
             <button onClick={() => onFundraise('grassroots')} className="w-full text-left p-3 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 transition-colors duration-150">
                 <div className="font-bold text-gray-100">Grassroots Fundraising</div>
