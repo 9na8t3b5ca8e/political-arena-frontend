@@ -193,7 +193,6 @@ const ProfileSetup = ({ currentUserData, onSetupComplete, setCurrentUserGlobal }
         economic_stance: currentUserData.economic_stance || 4,
         social_stance: currentUserData.social_stance || 4,
         bio: currentUserData.bio || '',
-        // --- NEW FIELDS INITIALIZED HERE from currentUserData ---
         gender: currentUserData.gender || '',
         race: currentUserData.race || '',
         religion: currentUserData.religion || '',
@@ -230,7 +229,6 @@ const ProfileSetup = ({ currentUserData, onSetupComplete, setCurrentUserGlobal }
         setProfileData(prev => ({ ...prev, [name]: value }));
     };
 
-    // This function will now save ALL fields when "Enter the Arena" is clicked
     const finishSetup = async () => {
         setError('');
         if (!profileData.party || !profileData.home_state || !profileData.gender || !profileData.race || !profileData.religion || !profileData.age) {
@@ -239,7 +237,6 @@ const ProfileSetup = ({ currentUserData, onSetupComplete, setCurrentUserGlobal }
         }
         setIsSaving(true);
         try {
-            // Consolidate all data to be sent
             const payload = {
                 party: profileData.party,
                 homeState: profileData.home_state,
@@ -251,15 +248,25 @@ const ProfileSetup = ({ currentUserData, onSetupComplete, setCurrentUserGlobal }
                 religion: profileData.religion,
                 age: parseInt(profileData.age, 10),
             };
-            const updatedProfile = await apiCall('/profile', { 
-                method: 'PUT', 
-                body: JSON.stringify(payload) 
+            // The API call returns an object like { message: "...", updatedProfile: { ... } }
+            const response = await apiCall('/profile', { // This calls PUT /api/profile
+                method: 'PUT',
+                body: JSON.stringify(payload)
             });
-            if (setCurrentUserGlobal && updatedProfile.updatedProfile) { // Backend returns { message, updatedProfile }
-                console.log("App.js - ProfileSetup - Calling setCurrentUserGlobal with:", updatedProfileResponse.updatedProfile);
-                setCurrentUserGlobal(updatedProfile.updatedProfile);
+
+            // --- FIX: Access the nested updatedProfile object ---
+            if (setCurrentUserGlobal && response && response.updatedProfile) {
+                console.log("App.js - ProfileSetup - Calling setCurrentUserGlobal with:", response.updatedProfile);
+                setCurrentUserGlobal(response.updatedProfile);
+            } else if (!response || !response.updatedProfile) {
+                // If the structure is not as expected, log an error.
+                // This can happen if the backend PUT /api/profile route doesn't return { updatedProfile: ... }
+                console.error("ProfileSetup Error: PUT /api/profile did not return expected 'updatedProfile' object.", response);
+                setError("Failed to update profile data correctly. Please try again or contact support.");
+                setIsSaving(false);
+                return; // Prevent calling onSetupComplete if data is bad
             }
-            onSetupComplete(); // This will trigger App.js to load the main app
+            onSetupComplete();
         } catch (err) {
             setError(`Failed to save profile: ${err.message}`);
         } finally {
@@ -267,6 +274,7 @@ const ProfileSetup = ({ currentUserData, onSetupComplete, setCurrentUserGlobal }
         }
     };
 
+    // JSX for ProfileSetup remains the same as the last version you provided
     return (
         <div className="max-w-2xl mx-auto mt-10 md:mt-20 p-6 bg-gray-800 rounded-lg space-y-6 shadow-xl">
             <h2 className="text-2xl font-bold text-center text-blue-300">Create Your Political Persona</h2>
@@ -288,7 +296,6 @@ const ProfileSetup = ({ currentUserData, onSetupComplete, setCurrentUserGlobal }
                 </div>
             </div>
 
-            {/* --- NEW DROPDOWN FIELDS ADDED HERE --- */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label className="block mb-1 text-sm font-bold text-gray-300">Gender *</label>
