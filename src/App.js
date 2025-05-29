@@ -35,6 +35,7 @@ function App() {
     }
     try {
       const profile = await apiCall('/auth/profile'); 
+        console.log("App.js - loadUserProfile - Fetched profile for currentUser:", profile);
       setCurrentUser(profile);
     } catch (error) {
       console.error("Failed to load profile, logging out.", error);
@@ -255,6 +256,7 @@ const ProfileSetup = ({ currentUserData, onSetupComplete, setCurrentUserGlobal }
                 body: JSON.stringify(payload) 
             });
             if (setCurrentUserGlobal && updatedProfile.updatedProfile) { // Backend returns { message, updatedProfile }
+                console.log("App.js - ProfileSetup - Calling setCurrentUserGlobal with:", updatedProfileResponse.updatedProfile);
                 setCurrentUserGlobal(updatedProfile.updatedProfile);
             }
             onSetupComplete(); // This will trigger App.js to load the main app
