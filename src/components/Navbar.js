@@ -112,11 +112,11 @@ export default function Navbar({ currentUser, logout, gameDate }) {
                         className="flex items-center focus:outline-none hover:opacity-80 transition-opacity"
                         title="Profile Menu"
                     >
-                        {currentUser.profile_picture_url ? (
+                {currentUser.profile_picture_url ? (
                             <img src={currentUser.profile_picture_url} alt="PFP" className="h-6 w-6 rounded-full object-cover border border-gray-400"/>
-                        ) : (
-                            <UserIcon className="h-6 w-6 text-gray-400 p-0.5 border border-gray-500 rounded-full"/>
-                        )}
+                ) : (
+                    <UserIcon className="h-6 w-6 text-gray-400 p-0.5 border border-gray-500 rounded-full"/>
+                )}
                         <ChevronDown size={12} className={`ml-1 text-gray-400 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
                     

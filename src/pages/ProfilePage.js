@@ -577,13 +577,52 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
 }
 
 // Helper Components
-const InfoCard = ({ title, icon, children }) => ( <div className="bg-gray-700/50 p-4 rounded-lg shadow-lg"> <h3 className="text-lg font-semibold text-blue-200 mb-3 flex items-center border-b border-gray-600 pb-2"> {icon && React.cloneElement(icon, { className: "mr-2" })} {title} </h3> <div className="space-y-2">{children}</div> </div> );
-const ReadOnlyField = ({ label, value, valueHtml, icon }) => ( <div> <span className="text-xs text-gray-400 block">{label}</span> <p className="text-sm text-gray-200 flex items-center"> {icon && React.cloneElement(icon, { className: "mr-1.5 text-gray-400" })} {valueHtml || value} </p> </div> );
-const EditableField = ({ label, name, value, onChange, type = "text", placeholder, disabled = false }) => ( <div className="mb-2"> <label htmlFor={name} className="block text-xs font-medium text-gray-300 mb-0.5">{label}</label> <input type={type} name={name} id={name} value={value || ''} onChange={onChange} placeholder={placeholder || label} disabled={disabled} className={`w-full p-1.5 bg-gray-600 rounded text-white border border-gray-500 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`} /> </div> );
+const InfoCard = ({ title, icon, children }) => (
+    <div className="bg-gray-700/50 p-4 rounded-lg shadow-lg">
+        <h3 className="text-lg font-semibold text-blue-200 mb-3 flex items-center border-b border-gray-600 pb-2">
+            {icon && React.cloneElement(icon, { className: "mr-2" })}
+            {title}
+        </h3>
+        <div className="space-y-2">{children}</div>
+    </div>
+);
+
+const ReadOnlyField = ({ label, value, valueHtml, icon }) => (
+    <div>
+        <span className="text-xs text-gray-400 block">{label}</span>
+        <p className="text-sm text-gray-200 flex items-center">
+            {icon && React.cloneElement(icon, { className: "mr-1.5 text-gray-400" })}
+            {valueHtml || value}
+        </p>
+    </div>
+);
+
+const EditableField = ({ label, name, value, onChange, type = "text", placeholder, disabled = false }) => (
+    <div className="mb-2">
+        <label htmlFor={name} className="block text-xs font-medium text-gray-300 mb-0.5">{label}</label>
+        <input 
+            type={type} 
+            name={name} 
+            id={name} 
+            value={value || ''} 
+            onChange={onChange} 
+            placeholder={placeholder || label} 
+            disabled={disabled} 
+            className={`w-full p-1.5 bg-gray-600 rounded text-white border border-gray-500 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`} 
+        />
+    </div>
+);
+
 const EditableDropdownField = ({ label, name, value, onChange, options, placeholder }) => (
     <div className="mb-2">
         <label htmlFor={name} className="block text-xs font-medium text-gray-300 mb-0.5">{label}</label>
-        <select name={name} id={name} value={value || ''} onChange={onChange} className="w-full p-1.5 bg-gray-600 rounded text-white border border-gray-500 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+        <select 
+            name={name} 
+            id={name} 
+            value={value || ''} 
+            onChange={onChange} 
+            className="w-full p-1.5 bg-gray-600 rounded text-white border border-gray-500 text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+        >
             <option value="">{placeholder || `Select ${label}`}</option>
             {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>

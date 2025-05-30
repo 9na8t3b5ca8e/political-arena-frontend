@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'; // Import Link
 import { apiCall } from '../api';
 import { formatPercentage } from '../utils/formatters';
 import { useNotification } from '../contexts/NotificationContext';
+import { useAuth } from '../contexts/AuthContext';
 
 // Enhanced MiniProfile component with new economic information
 const MiniProfile = ({ user, incomeDetails }) => {
@@ -15,8 +16,8 @@ const MiniProfile = ({ user, incomeDetails }) => {
                     <div className="h-4 bg-gray-600 rounded"></div>
                     <div className="h-4 bg-gray-600 rounded"></div>
                     <div className="h-4 bg-gray-600 rounded"></div>
-                </div>
-            </div>
+        </div>
+    </div>
         );
     }
 
@@ -138,9 +139,9 @@ const Fundraising = ({ onFundraise, user, loadingFundraise, incomeDetails }) => 
         const multiplier = currentCost / baseCost;
         if (multiplier <= 1.1) return "Base Cost";
         return `+${Math.round((multiplier - 1) * 100)}% Cost`;
-    };
+  };
 
-    return (
+  return (
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
             <h3 className="text-2xl font-bold mb-4 text-gray-900">Campaign Fundraising</h3>
             <p className="text-sm text-gray-700 mb-4">
@@ -410,7 +411,7 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
                         </p>
                     )}
                 </div>
-            </div>
+                  </div>
 
             {/* Progressive Cost Information */}
             <div className="mt-6 bg-gray-100 border border-gray-300 rounded-lg p-4">
@@ -433,32 +434,36 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
     );
 };
 
-const HomePage = () => {
+const HomePage = ({ currentUser: propCurrentUser }) => {
     const { showSuccess, showError } = useNotification();
-    const [currentUser, setCurrentUser] = useState(null);
+    const { updateUser, refreshUser } = useAuth();
+    const [incomeDetails, setIncomeDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [loadingFundraise, setLoadingFundraise] = useState(false);
     const [loadingGiveSpeech, setLoadingGiveSpeech] = useState(false);
     const [loadingCampaignAction, setLoadingCampaignAction] = useState(false);
-    const [incomeDetails, setIncomeDetails] = useState(null);
+    
+    // Use the currentUser from props (App.js AuthContext)
+    const currentUser = propCurrentUser;
 
     useEffect(() => {
-        const fetchUserData = async () => {
-            try {
-                const userData = await apiCall('/auth/profile');
-                setCurrentUser(userData);
-                
-                const incomeData = await apiCall('/income/details');
-                setIncomeDetails(incomeData);
-            } catch (error) {
-                console.error('Error fetching user data:', error);
-            } finally {
+        const fetchIncomeDetails = async () => {
+            if (currentUser) {
+                try {
+                    const incomeData = await apiCall('/income/details');
+                    setIncomeDetails(incomeData);
+                } catch (error) {
+                    console.error('Error fetching income data:', error);
+                } finally {
+                    setLoading(false);
+                }
+            } else {
                 setLoading(false);
             }
         };
 
-        fetchUserData();
-    }, []);
+        fetchIncomeDetails();
+    }, [currentUser]);
 
     const handleFundraise = async (type) => {
         setLoadingFundraise(true);
@@ -468,15 +473,15 @@ const HomePage = () => {
                 body: JSON.stringify({ type })
             });
             
-            // Update user data with all returned stats
-            setCurrentUser(prev => ({
-                ...prev,
-                ...result.newStats
-            }));
+            // Update user data with all returned stats using AuthContext
+            updateUser(result.newStats);
             
             // Refresh income details to show updated hourly income and bonuses
             const incomeData = await apiCall('/income/details');
             setIncomeDetails(incomeData);
+            
+            // Also refresh the full user profile to ensure all data is synchronized
+            await refreshUser();
             
             showSuccess(result.message);
         } catch (error) {
@@ -493,11 +498,8 @@ const HomePage = () => {
                 method: 'POST'
             });
             
-            // Update user data
-            setCurrentUser(prev => ({
-                ...prev,
-                ...result.newStats
-            }));
+            // Update user data with all returned stats using AuthContext
+            updateUser(result.newStats);
             
             showSuccess(result.message);
         } catch (error) {
@@ -515,11 +517,11 @@ const HomePage = () => {
                 body: JSON.stringify({ action: actionType })
             });
             
-            // Update user data with all returned stats
-            setCurrentUser(prev => ({
-                ...prev,
-                ...result.newStats
-            }));
+            // Update user data with all returned stats using AuthContext
+            updateUser(result.newStats);
+            
+            // Refresh the full user profile to ensure all data is synchronized
+            await refreshUser();
             
             showSuccess(result.message);
         } catch (error) {
@@ -546,10 +548,10 @@ const HomePage = () => {
                     {/* Left Column - Profile */}
                     <div>
                         <MiniProfile user={currentUser} incomeDetails={incomeDetails} />
-                    </div>
-                    
+      </div>
+
                     {/* Middle Column - Actions */}
-                    <div className="space-y-6">
+      <div className="space-y-6">
                         <Fundraising 
                             onFundraise={handleFundraise} 
                             user={currentUser} 
@@ -572,9 +574,9 @@ const HomePage = () => {
                         />
                     </div>
                 </div>
-            </div>
-        </div>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default HomePage;
