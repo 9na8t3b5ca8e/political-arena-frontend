@@ -213,8 +213,8 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 method: 'POST',
                 body: JSON.stringify({
                     partyId,
-                    targetUserFirstName,
-                    targetUserLastName,
+                    targetUserFirstName: targetMemberFirstName,
+                    targetUserLastName: targetMemberLastName,
                     amount: parseInt(fundingAmount),
                     reason: fundingReason
                 })

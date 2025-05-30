@@ -1,7 +1,7 @@
 // frontend/src/components/Navbar.js
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon, Users, Settings, ChevronDown, Flag } from 'lucide-react';
+import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon, Users, Settings, ChevronDown, Flag, Shield } from 'lucide-react';
 import NotificationCenter from './NotificationCenter';
 
 export default function Navbar({ currentUser, logout, gameDate }) {
@@ -15,6 +15,10 @@ export default function Navbar({ currentUser, logout, gameDate }) {
     fontWeight: isActive ? 'bold' : 'normal',
     whiteSpace: 'nowrap',
   });
+
+  // Check if user is in party leadership
+  const isPartyLeader = currentUser && currentUser.party_leadership_role && 
+    ['chair', 'vice_chair', 'treasurer'].includes(currentUser.party_leadership_role);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -93,17 +97,28 @@ export default function Navbar({ currentUser, logout, gameDate }) {
                         >
                             All Players
                         </NavLink>
+                        {currentUser && currentUser.party && (
+                            <NavLink 
+                                to={currentUser.party_id ? `/party/${currentUser.party_id}` : '/party'} 
+                                style={navLinkStyles} 
+                                className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left"
+                                onClick={() => setIsUSADropdownOpen(false)}
+                            >
+                                My Party ({currentUser.party})
+                            </NavLink>
+                        )}
                     </div>
                 </div>
             )}
             {currentUser && <NavLink to={`/profile/${currentUser.id}`} style={navLinkStyles} className="text-sm sm:text-base">Profile</NavLink>}
-            {currentUser && currentUser.party && (
+            {/* Party Manager tab for party leaders */}
+            {currentUser && isPartyLeader && (
                 <NavLink 
                     to={currentUser.party_id ? `/party/${currentUser.party_id}` : '/party'} 
                     style={navLinkStyles} 
                     className="flex items-center text-sm sm:text-base"
                 >
-                    <Users size={14} className="mr-1 hidden sm:inline-block"/> {currentUser.party}
+                    <Shield size={14} className="mr-1 hidden sm:inline-block"/> Party Manager
                 </NavLink>
             )}
             </nav>
