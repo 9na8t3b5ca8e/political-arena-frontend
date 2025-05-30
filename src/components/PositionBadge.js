@@ -3,8 +3,8 @@ import { Crown, Shield, DollarSign, Building2 } from 'lucide-react';
 
 const PositionBadge = ({ position, office, party }) => {
     const getBadgeInfo = () => {
-        // Party Leadership Badges
-        if (position === 'chair') {
+        // Party Leadership Badges - but not for Independent since it's not a real party
+        if (position === 'chair' && party !== 'Independent') {
             return {
                 icon: Crown,
                 label: `${party} Chair`,
@@ -14,7 +14,7 @@ const PositionBadge = ({ position, office, party }) => {
             };
         }
         
-        if (position === 'vice_chair') {
+        if (position === 'vice_chair' && party !== 'Independent') {
             return {
                 icon: Crown,
                 label: `${party} Vice Chair`,
@@ -24,7 +24,7 @@ const PositionBadge = ({ position, office, party }) => {
             };
         }
         
-        if (position === 'treasurer') {
+        if (position === 'treasurer' && party !== 'Independent') {
             return {
                 icon: DollarSign,
                 label: `${party} Treasurer`,

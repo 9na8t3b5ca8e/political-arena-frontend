@@ -11,6 +11,7 @@ import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
 import PartyPage from './pages/PartyPage';
 import AllPartiesPage from './pages/AllPartiesPage';
+import AllPlayersPage from './pages/AllPlayersPage';
 import CampaignHQPage from './pages/CampaignHQPage';
 import NotificationsPage from './pages/NotificationsPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
@@ -77,6 +78,7 @@ function AppContent() {
                     <Route path="/party" element={<PartyPage currentUser={currentUser} />} />
                     <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
                     <Route path="/parties" element={<AllPartiesPage />} />
+                    <Route path="/players" element={<AllPlayersPage currentUser={currentUser} />} />
                     <Route path="/campaign-hq" element={<CampaignHQPage />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
                     <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />

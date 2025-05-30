@@ -87,6 +87,14 @@ export default function Navbar({ currentUser, logout, gameDate }) {
                         >
                             View All Parties
                         </NavLink>
+                        <NavLink 
+                            to="/players" 
+                            style={navLinkStyles} 
+                            className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left"
+                            onClick={() => setIsPartiesDropdownOpen(false)}
+                        >
+                            All Players
+                        </NavLink>
                     </div>
                 </div>
             )}

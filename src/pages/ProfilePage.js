@@ -518,8 +518,8 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                             <ReadOnlyField label="Campaign Funds" value={`$${profileData.campaign_funds?.toLocaleString()}`} icon={<DollarSign size={14}/>}/>
                             <ReadOnlyField label="Political Capital" value={profileData.political_capital} icon={<Briefcase size={14}/>}/>
                             <ReadOnlyField label="Action Points" value={profileData.action_points} />
-                            <ReadOnlyField label="State Name Recognition" value={`${formatPercentage(profileData.state_name_recognition)}%`} />
-                            <ReadOnlyField label="Campaign Strength" value={`${formatPercentage(profileData.campaign_strength)}%`} />
+                            <ReadOnlyField label="State Name Recognition" value={formatPercentage(profileData.state_name_recognition)} />
+                            <ReadOnlyField label="Campaign Strength" value={formatPercentage(profileData.campaign_strength)} />
                         </InfoCard>
                     </div>
                     <div className="md:col-span-2 space-y-6">
