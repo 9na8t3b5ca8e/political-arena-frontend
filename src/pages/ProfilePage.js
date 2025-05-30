@@ -131,7 +131,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
 
             // Always make API call to get fresh profile data with party leadership info
             const data = viewingOwnProfile 
-                ? await apiCall('/profile/own') 
+                ? await apiCall('/profile') 
                 : await apiCall(`/profiles/${targetUserId}`);
                 
             console.log("ProfilePage - loadProfile: Setting profileData to:", data);
