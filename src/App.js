@@ -233,37 +233,20 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess }) => {
                         </div>
                     )}
                     
-                    {/* Username field only for login */}
-                    {!isRegister && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">
-                                Username
-                            </label>
-                            <input 
-                                name="username" 
-                                placeholder="FirstName.LastName" 
-                                onChange={handleChange} 
-                                required 
-                                className="p-2 bg-gray-700 rounded w-full border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            />
-                        </div>
-                    )}
-                    
-                    {isRegister && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-1">
-                                Email Address *
-                            </label>
-                            <input 
-                                name="email" 
-                                type="email" 
-                                placeholder="your.email@example.com" 
-                                onChange={handleChange} 
-                                required 
-                                className="p-2 bg-gray-700 rounded w-full border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            />
-                        </div>
-                    )}
+                    {/* Email field for both login and registration */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">
+                            Email Address *
+                        </label>
+                        <input 
+                            name="email" 
+                            type="email" 
+                            placeholder="your.email@example.com" 
+                            onChange={handleChange} 
+                            required 
+                            className="p-2 bg-gray-700 rounded w-full border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
                     
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-1">
