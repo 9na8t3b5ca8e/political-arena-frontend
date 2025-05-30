@@ -5,15 +5,19 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:10000';
  * Make an API call with authentication and standard error handling
  * @param {string} endpoint - The API endpoint to call (without the base URL)
  * @param {Object} options - Fetch options (method, body, etc.)
+ * @param {boolean} isFileUpload - Whether this is a file upload (FormData)
  * @returns {Promise<any>} The response data
  * @throws {Error} If the API call fails
  */
-export const apiCall = async (endpoint, options = {}) => {
+export const apiCall = async (endpoint, options = {}, isFileUpload = false) => {
     const token = localStorage.getItem('authToken');
+    
+    console.log('apiCall debug:', { endpoint, isFileUpload, hasFormData: options.body instanceof FormData });
     
     const defaultOptions = {
         headers: {
-            'Content-Type': 'application/json',
+            // Don't set Content-Type for file uploads - browser will set it with boundary
+            ...(isFileUpload ? {} : { 'Content-Type': 'application/json' }),
             ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
     };
@@ -27,18 +31,39 @@ export const apiCall = async (endpoint, options = {}) => {
         },
     };
 
+    console.log('apiCall fetchOptions headers:', fetchOptions.headers);
+
     // Ensure the endpoint starts with a slash
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     
     try {
         const response = await fetch(`${API_BASE_URL}${normalizedEndpoint}`, fetchOptions);
         
-        // Parse the JSON response
-        const data = await response.json();
+        console.log('apiCall response:', { status: response.status, contentType: response.headers.get('content-type') });
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            // For non-JSON responses, try to get text and parse as JSON if possible
+            const text = await response.text();
+            console.log('apiCall non-JSON response text:', text.substring(0, 200));
+            try {
+                data = JSON.parse(text);
+            } catch {
+                // If can't parse as JSON, create error object
+                data = { error: text || 'Non-JSON response received' };
+            }
+        }
+        
+        console.log('apiCall parsed data:', data);
         
         // Check if the response was successful
         if (!response.ok) {
-            throw new Error(data.error || data.message || 'API call failed');
+            throw new Error(data.error || data.message || `HTTP ${response.status}: ${response.statusText}`);
         }
         
         return data;
