@@ -49,30 +49,56 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [partyRes, candidatesRes, votesRes, talliesRes] = await Promise.all([
+                // Always fetch basic party details and candidates
+                const baseApiCalls = [
                     apiCall(`/party/${partyId}`),
                     apiCall(`/party/${partyId}/candidates`),
-                    apiCall(`/party/${partyId}/votes/current`),
                     apiCall(`/party/${partyId}/votes/tallies`)
-                ]);
+                ];
+
+                // Check if this is the user's own party
+                const isOwnParty = currentUser && currentUser.party_id && 
+                    currentUser.party_id.toString() === partyId.toString();
+
+                // Only fetch voting data if viewing own party
+                if (isOwnParty) {
+                    baseApiCalls.push(apiCall(`/party/${partyId}/votes/current`));
+                }
+
+                const results = await Promise.all(baseApiCalls);
+                const [partyRes, candidatesRes, talliesRes, votesRes] = results;
+
                 setPartyDetails(partyRes);
                 setCandidates(candidatesRes);
-                setCurrentUserVotes(votesRes);
                 setVoteTallies(talliesRes);
 
-                // Set initial vote selections based on current user votes
-                setSelectedChairVote(votesRes.chair_vote_user_id ? votesRes.chair_vote_user_id.toString() : '');
-                setSelectedViceChairVote(votesRes.vice_chair_vote_user_id ? votesRes.vice_chair_vote_user_id.toString() : '');
-                setSelectedTreasurerVote(votesRes.treasurer_vote_user_id ? votesRes.treasurer_vote_user_id.toString() : '');
+                // Only process voting data if it was fetched
+                if (isOwnParty && votesRes) {
+                    setCurrentUserVotes(votesRes);
+                    
+                    // Set initial vote selections based on current user votes
+                    setSelectedChairVote(votesRes.chair_vote_user_id ? votesRes.chair_vote_user_id.toString() : '');
+                    setSelectedViceChairVote(votesRes.vice_chair_vote_user_id ? votesRes.vice_chair_vote_user_id.toString() : '');
+                    setSelectedTreasurerVote(votesRes.treasurer_vote_user_id ? votesRes.treasurer_vote_user_id.toString() : '');
 
-                // Check if user has already voted in this cycle
-                const hasExistingVotes = votesRes.chair_vote_user_id || votesRes.vice_chair_vote_user_id || votesRes.treasurer_vote_user_id;
-                setHasVotedThisCycle(!!hasExistingVotes);
+                    // Check if user has already voted in this cycle
+                    const hasExistingVotes = votesRes.chair_vote_user_id || votesRes.vice_chair_vote_user_id || votesRes.treasurer_vote_user_id;
+                    setHasVotedThisCycle(!!hasExistingVotes);
+                } else {
+                    // Reset voting-related state when viewing other parties
+                    setCurrentUserVotes({});
+                    setSelectedChairVote('');
+                    setSelectedViceChairVote('');
+                    setSelectedTreasurerVote('');
+                    setHasVotedThisCycle(false);
+                }
 
-                // Check if current user is running for any positions
-                if (currentUser) {
+                // Check if current user is running for any positions (only for own party)
+                if (currentUser && isOwnParty) {
                     const userCands = candidatesRes.filter(c => c.user_id === currentUser.id);
                     setUserCandidacies(userCands);
+                } else {
+                    setUserCandidacies([]);
                 }
 
                 setLoading(false);
@@ -99,46 +125,75 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
 
         fetchData();
 
-        // Set up periodic refreshing of vote data (every 30 seconds)
-        const interval = setInterval(async () => {
-            try {
-                const [talliesRes] = await Promise.all([
-                    apiCall(`/party/${partyId}/votes/tallies`)
-                ]);
-                setVoteTallies(talliesRes);
-            } catch (err) {
-                console.error('Error refreshing vote tallies:', err);
-            }
-        }, 30000);
+        // Set up periodic refreshing of vote data (every 30 seconds) - only for own party
+        const isOwnParty = currentUser && currentUser.party_id && 
+            currentUser.party_id.toString() === partyId.toString();
+        
+        let interval;
+        if (isOwnParty) {
+            interval = setInterval(async () => {
+                try {
+                    const [talliesRes] = await Promise.all([
+                        apiCall(`/party/${partyId}/votes/tallies`)
+                    ]);
+                    setVoteTallies(talliesRes);
+                } catch (err) {
+                    console.error('Error refreshing vote tallies:', err);
+                }
+            }, 30000);
+        }
 
-        return () => clearInterval(interval);
+        return () => {
+            if (interval) {
+                clearInterval(interval);
+            }
+        };
     }, [partyId, currentUser]);
 
     const refreshData = async () => {
         try {
-            const [candidatesRes, votesRes, talliesRes] = await Promise.all([
-                apiCall(`/party/${partyId}/candidates`),
-                apiCall(`/party/${partyId}/votes/current`),
-                apiCall(`/party/${partyId}/votes/tallies`)
-            ]);
-            setCandidates(candidatesRes);
-            setCurrentUserVotes(votesRes);
-            setVoteTallies(talliesRes);
+            // Check if this is the user's own party
+            const isOwnParty = currentUser && currentUser.party_id && 
+                currentUser.party_id.toString() === partyId.toString();
 
-            // Update user candidacies
-            if (currentUser) {
-                const userCands = candidatesRes.filter(c => c.user_id === currentUser.id);
-                setUserCandidacies(userCands);
+            // Always fetch basic data
+            const baseApiCalls = [
+                apiCall(`/party/${partyId}/candidates`),
+                apiCall(`/party/${partyId}/votes/tallies`)
+            ];
+
+            // Only fetch voting data if viewing own party
+            if (isOwnParty) {
+                baseApiCalls.push(apiCall(`/party/${partyId}/votes/current`));
             }
 
-            // Update vote state from server (in case user voted from another device)
-            setSelectedChairVote(votesRes.chair_vote_user_id ? votesRes.chair_vote_user_id.toString() : '');
-            setSelectedViceChairVote(votesRes.vice_chair_vote_user_id ? votesRes.vice_chair_vote_user_id.toString() : '');
-            setSelectedTreasurerVote(votesRes.treasurer_vote_user_id ? votesRes.treasurer_vote_user_id.toString() : '');
+            const results = await Promise.all(baseApiCalls);
+            const [candidatesRes, talliesRes, votesRes] = results;
 
-            // Update voting status
-            const hasExistingVotes = votesRes.chair_vote_user_id || votesRes.vice_chair_vote_user_id || votesRes.treasurer_vote_user_id;
-            setHasVotedThisCycle(!!hasExistingVotes);
+            setCandidates(candidatesRes);
+            setVoteTallies(talliesRes);
+
+            // Only process voting data if it was fetched
+            if (isOwnParty && votesRes) {
+                setCurrentUserVotes(votesRes);
+                
+                // Update vote state from server (in case user voted from another device)
+                setSelectedChairVote(votesRes.chair_vote_user_id ? votesRes.chair_vote_user_id.toString() : '');
+                setSelectedViceChairVote(votesRes.vice_chair_vote_user_id ? votesRes.vice_chair_vote_user_id.toString() : '');
+                setSelectedTreasurerVote(votesRes.treasurer_vote_user_id ? votesRes.treasurer_vote_user_id.toString() : '');
+
+                // Update voting status
+                const hasExistingVotes = votesRes.chair_vote_user_id || votesRes.vice_chair_vote_user_id || votesRes.treasurer_vote_user_id;
+                setHasVotedThisCycle(!!hasExistingVotes);
+            }
+
+            // Update user candidacies (only for own party)
+            if (currentUser && isOwnParty) {
+                const userCands = candidatesRes.filter(c => c.user_id === currentUser.id);
+                setUserCandidacies(userCands);
+            } else {
+                setUserCandidacies([]);
+            }
         } catch (err) {
             console.error('Error refreshing data:', err);
         }
@@ -305,6 +360,10 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
          partyDetails.vice_chair_user_id === currentUser.id || 
          partyDetails.treasurer_user_id === currentUser.id);
 
+    // Check if this is the user's own party
+    const isOwnParty = currentUser && currentUser.party_id && 
+        currentUser.party_id.toString() === partyId.toString();
+
     const availablePositions = ['chair', 'vice_chair', 'treasurer'].filter(position => 
         !userCandidacies.some(candidacy => candidacy.position_contested === position)
     );
@@ -442,8 +501,8 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
             </div>
             )}
 
-            {/* Leadership Candidacy Form - Only show if user has candidacies */}
-            {userCandidacies.length > 0 && (
+            {/* Leadership Candidacy Form - Only show if user has candidacies in their own party */}
+            {isOwnParty && userCandidacies.length > 0 && (
                 <div className="bg-white rounded-lg shadow p-6">
                     <h3 className="text-xl font-semibold mb-4">Current Candidacies</h3>
                     <div className="space-y-3">
@@ -464,8 +523,8 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 </div>
             )}
 
-            {/* Leadership Candidacy Form - Only show if user can run for additional positions */}
-            {availablePositions.length > 0 && userCandidacies.length === 0 && (
+            {/* Leadership Candidacy Form - Only show if user can run for additional positions in their own party */}
+            {isOwnParty && availablePositions.length > 0 && userCandidacies.length === 0 && (
                 <div className="bg-white rounded-lg shadow p-6">
                     <h3 className="text-xl font-semibold mb-4">Submit Leadership Candidacy</h3>
                     <form onSubmit={handleLeadershipCandidacy} className="space-y-4">
@@ -497,16 +556,16 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 </div>
             )}
 
-            {/* Help text when user has no candidacies and no available positions */}
-            {availablePositions.length === 0 && userCandidacies.length === 0 && (
+            {/* Help text when user has no candidacies and no available positions in their own party */}
+            {isOwnParty && availablePositions.length === 0 && userCandidacies.length === 0 && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                     <h3 className="text-lg font-semibold mb-2 text-gray-700">Leadership Candidacy</h3>
                     <p className="text-gray-600">You are currently running for all available leadership positions in this election cycle.</p>
                 </div>
             )}
 
-            {/* Party Dues Management - Only show for party chair */}
-            {isPartyLeader && currentUser && partyDetails && partyDetails.chair_user_id === currentUser.id && (
+            {/* Party Dues Management - Only show for party chair of their own party */}
+            {isOwnParty && isPartyLeader && currentUser && partyDetails && partyDetails.chair_user_id === currentUser.id && (
                 <div className="bg-white rounded-lg shadow p-6">
                     <h3 className="text-xl font-semibold mb-4">Party Dues Management</h3>
                     <p className="text-sm text-gray-600 mb-4">
@@ -559,7 +618,8 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 </div>
             )}
 
-            {/* Leadership Election Voting Section */}
+            {/* Leadership Election Voting Section - Only show for own party */}
+            {isOwnParty && (
             <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xl font-semibold">Party Leadership Election</h3>
@@ -719,6 +779,7 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                     </form>
                 )}
             </div>
+            )}
         </div>
     );
 };

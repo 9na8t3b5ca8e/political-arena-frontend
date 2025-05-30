@@ -3,12 +3,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { apiCall } from './api';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
 import PartyPage from './pages/PartyPage';
 import AllPartiesPage from './pages/AllPartiesPage';
 import CampaignHQPage from './pages/CampaignHQPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
 import { allStates, stateData, stanceScale } from './state-data';
 import StatePage from './pages/StatePage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -53,32 +56,41 @@ function AppContent() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-900 text-white p-4 font-sans">
-        <div className="max-w-7xl mx-auto">
-          {currentUser ? (
-            <>
-              <Navbar currentUser={currentUser} logout={logout} gameDate={gameDate} /> 
-              <main className="mt-6">
+      <div className="min-h-screen bg-gray-900 text-white font-sans flex flex-col">
+        <div className="flex-1 p-4">
+          <div className="max-w-7xl mx-auto">
+            {currentUser ? (
+              <>
+                <Navbar currentUser={currentUser} logout={logout} gameDate={gameDate} /> 
+                <main className="mt-6">
+                  <Routes>
+                    <Route path="/" element={<HomePage currentUser={currentUser} />} />
+                    <Route path="/map" element={<MapPage />} />
+                    <Route path="/state/:stateName" element={<StatePage currentUser={currentUser} />} />
+                    <Route path="/profile" element={<ProfilePage currentUser={currentUser} />} />
+                    <Route path="/profile/:userId" element={<ProfilePage currentUser={currentUser} />} />
+                    <Route path="/party" element={<PartyPage currentUser={currentUser} />} />
+                    <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
+                    <Route path="/parties" element={<AllPartiesPage />} />
+                    <Route path="/campaign-hq" element={<CampaignHQPage />} />
+                    <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                    <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+                    <Route path="*" element={<Navigate to="/" />} />
+                  </Routes>
+                </main>
+              </>
+            ) : (
+              <>
                 <Routes>
-                  <Route path="/" element={<HomePage currentUser={currentUser} />} />
-                  <Route path="/map" element={<MapPage />} />
-                  <Route path="/state/:stateName" element={<StatePage currentUser={currentUser} />} />
-                  <Route path="/profile" element={<ProfilePage currentUser={currentUser} />} />
-                  <Route path="/profile/:userId" element={<ProfilePage currentUser={currentUser} />} />
-                  <Route path="/party" element={<PartyPage currentUser={currentUser} />} />
-                  <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
-                  <Route path="/parties" element={<AllPartiesPage />} />
-                  <Route path="/campaign-hq" element={<CampaignHQPage />} />
-                  <Route path="*" element={<Navigate to="/" />} />
+                  <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                  <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+                  <Route path="*" element={<AuthRouter />} />
                 </Routes>
-              </main>
-            </>
-          ) : (
-            <Routes>
-                <Route path="*" element={<AuthRouter />} />
-            </Routes>
-          )}
+              </>
+            )}
+          </div>
         </div>
+        <Footer />
       </div>
     </BrowserRouter>
   );
