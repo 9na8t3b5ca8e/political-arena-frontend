@@ -513,7 +513,7 @@ const HomePage = () => {
                 body: JSON.stringify({ action: actionType })
             });
             
-            // Update user data
+            // Update user data with all returned stats
             setCurrentUser(prev => ({
                 ...prev,
                 ...result.newStats
