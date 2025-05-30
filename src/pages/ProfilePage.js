@@ -1,16 +1,21 @@
 // frontend/src/pages/ProfilePage.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { apiCall } from '../api';
 import { stanceScale, allStates, stateData as allStateData } from '../state-data';
 import {
     Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail,
     Copy,
     Check, AlertTriangle, Lock, Settings as SettingsIcon, UploadCloud,
-    Trash2, UserCircle2
+    Trash2, UserCircle2, Building2, Users, Calendar, Edit2, Eye
 } from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
 import ActiveCampaignsCard from '../components/ActiveCampaignsCard';
+import PoliticalInteractionCard from '../components/PoliticalInteractionCard';
+import CandidateFinanceWidget from '../components/CandidateFinanceWidget';
+import { formatPercentage } from '../utils/formatters';
+import EditableField from '../components/EditableField';
+import ReadOnlyField from '../components/ReadOnlyField';
 
 // Helper to get stance label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value, 10))?.label || 'Moderate';
@@ -496,8 +501,8 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                             <ReadOnlyField label="Campaign Funds" value={`$${profileData.campaign_funds?.toLocaleString()}`} icon={<DollarSign size={14}/>}/>
                             <ReadOnlyField label="Political Capital" value={profileData.political_capital} icon={<Briefcase size={14}/>}/>
                             <ReadOnlyField label="Action Points" value={profileData.action_points} />
-                            <ReadOnlyField label="State Name Recognition" value={`${profileData.state_name_recognition}%`} />
-                            <ReadOnlyField label="Campaign Strength" value={`${profileData.campaign_strength}%`} />
+                            <ReadOnlyField label="State Name Recognition" value={`${formatPercentage(profileData.state_name_recognition)}%`} />
+                            <ReadOnlyField label="Campaign Strength" value={`${formatPercentage(profileData.campaign_strength)}%`} />
                         </InfoCard>
                     </div>
                     <div className="md:col-span-2 space-y-6">

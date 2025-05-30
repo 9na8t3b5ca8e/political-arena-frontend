@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon, Users, Settings, ChevronDown } from 'lucide-react';
+import NotificationCenter from './NotificationCenter';
 
 export default function Navbar({ currentUser, logout, gameDate }) {
   const [isPartiesDropdownOpen, setIsPartiesDropdownOpen] = useState(false);
@@ -101,6 +102,9 @@ export default function Navbar({ currentUser, logout, gameDate }) {
                 </div>
                 )}
                 <div className="flex items-center space-x-2 sm:space-x-3">
+                {/* Notification Center */}
+                <NotificationCenter currentUser={currentUser} />
+                
                 {/* Profile Picture Thumbnail with Dropdown */}
                 <div className="relative" ref={profileDropdownRef}>
                     <button 

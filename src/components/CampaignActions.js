@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { apiCall } from '../api';
+import { formatPercentage } from '../utils/formatters';
+import { useNotification } from '../contexts/NotificationContext';
 
 const CampaignActions = ({ onAction, currentUser }) => {
+    const { showSuccess, showError } = useNotification();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -83,10 +86,10 @@ const CampaignActions = ({ onAction, currentUser }) => {
             // Call the onAction callback to update parent state
             onAction({ newStats: result.newStats });
             
-            alert(result.message);
+            showSuccess(result.message);
         } catch (err) {
             setError(err.message || 'Action failed');
-            alert(err.message || 'Action failed');
+            showError(err.message || 'Action failed');
         } finally {
             setLoading(false);
         }
@@ -241,8 +244,8 @@ const CampaignActions = ({ onAction, currentUser }) => {
             <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <h5 className="font-semibold text-blue-800 mb-2">Progressive Cost System</h5>
                 <div className="text-xs text-blue-700 space-y-1">
-                    <p>• TV Ad costs scale with State Name Recognition ({currentUser?.state_name_recognition || 10}%)</p>
-                    <p>• Rally costs scale with Campaign Strength ({currentUser?.campaign_strength || 10}%)</p>
+                    <p>• TV Ad costs scale with State Name Recognition ({formatPercentage(currentUser?.state_name_recognition || 10)}%)</p>
+                    <p>• Rally costs scale with Campaign Strength ({formatPercentage(currentUser?.campaign_strength || 10)}%)</p>
                     <p>• Attack/Support costs scale with Campaign Strength</p>
                     <p>• Higher stats = higher costs but maintain effectiveness</p>
                 </div>

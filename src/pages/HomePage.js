@@ -2,22 +2,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom'; // Import Link
 import { apiCall } from '../api';
+import { formatPercentage } from '../utils/formatters';
+import { useNotification } from '../contexts/NotificationContext';
 
 // Enhanced MiniProfile component with new economic information
-const MiniProfile = ({ user }) => {
-    const [incomeDetails, setIncomeDetails] = useState(null);
-
-    useEffect(() => {
-        const fetchIncomeDetails = async () => {
-            try {
-                const details = await apiCall('/income/details');
-                setIncomeDetails(details);
-            } catch (error) {
-                console.error('Error fetching income details:', error);
-            }
-        };
-        fetchIncomeDetails();
-    }, []);
+const MiniProfile = ({ user, incomeDetails }) => {
+    if (!user) {
+        return (
+            <div className="bg-gray-800 p-6 rounded-lg shadow-lg animate-pulse">
+                <div className="h-6 bg-gray-600 rounded mb-4"></div>
+                <div className="space-y-3">
+                    <div className="h-4 bg-gray-600 rounded"></div>
+                    <div className="h-4 bg-gray-600 rounded"></div>
+                    <div className="h-4 bg-gray-600 rounded"></div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
@@ -78,11 +79,11 @@ const MiniProfile = ({ user }) => {
                 </div>
                 <div>
                     <p className="text-gray-400 text-sm">State Name Recognition</p>
-                    <p className="text-red-400 font-semibold">{user.state_name_recognition}%</p>
+                    <p className="text-red-400 font-semibold">{formatPercentage(user.state_name_recognition)}</p>
                 </div>
                 <div>
                     <p className="text-gray-400 text-sm">Campaign Strength</p>
-                    <p className="text-indigo-400 font-semibold">{user.campaign_strength}%</p>
+                    <p className="text-indigo-400 font-semibold">{formatPercentage(user.campaign_strength)}</p>
                 </div>
             </div>
         </div>
@@ -415,8 +416,8 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
             <div className="mt-6 bg-gray-100 border border-gray-300 rounded-lg p-4">
                 <h4 className="font-semibold text-gray-900 mb-2">Cost Scaling System</h4>
                 <div className="text-xs text-gray-800 space-y-1">
-                    <div>• TV Ad costs scale with State Name Recognition ({user.state_name_recognition || 0}%)</div>
-                    <div>• Rally costs scale with Campaign Strength ({user.campaign_strength || 0}%)</div>
+                    <div>• TV Ad costs scale with State Name Recognition ({formatPercentage(user.state_name_recognition)})</div>
+                    <div>• Rally costs scale with Campaign Strength ({formatPercentage(user.campaign_strength)})</div>
                     <div>• Higher stats = higher costs but better effectiveness</div>
                 </div>
             </div>
@@ -433,6 +434,7 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
 };
 
 const HomePage = () => {
+    const { showSuccess, showError } = useNotification();
     const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [loadingFundraise, setLoadingFundraise] = useState(false);
@@ -476,9 +478,9 @@ const HomePage = () => {
             const incomeData = await apiCall('/income/details');
             setIncomeDetails(incomeData);
             
-            alert(result.message);
+            showSuccess(result.message);
         } catch (error) {
-            alert(error.message || 'Fundraising failed');
+            showError(error.message || 'Fundraising failed');
         } finally {
             setLoadingFundraise(false);
         }
@@ -497,9 +499,9 @@ const HomePage = () => {
                 ...result.newStats
             }));
             
-            alert(result.message);
+            showSuccess(result.message);
         } catch (error) {
-            alert(error.message || 'Failed to give speech');
+            showError(error.message || 'Failed to give speech');
         } finally {
             setLoadingGiveSpeech(false);
         }
@@ -519,9 +521,9 @@ const HomePage = () => {
                 ...result.newStats
             }));
             
-            alert(result.message);
+            showSuccess(result.message);
         } catch (error) {
-            alert(error.message || 'Campaign action failed');
+            showError(error.message || 'Campaign action failed');
         } finally {
             setLoadingCampaignAction(false);
         }
@@ -543,7 +545,7 @@ const HomePage = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column - Profile */}
                     <div>
-                        <MiniProfile user={currentUser} />
+                        <MiniProfile user={currentUser} incomeDetails={incomeDetails} />
                     </div>
                     
                     {/* Middle Column - Actions */}

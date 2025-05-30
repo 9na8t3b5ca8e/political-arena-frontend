@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { apiCall } from './api';
+import { NotificationProvider, useNotification } from './contexts/NotificationContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import PolicyAgreementModal from './components/PolicyAgreementModal';
@@ -11,11 +12,13 @@ import ProfilePage from './pages/ProfilePage';
 import PartyPage from './pages/PartyPage';
 import AllPartiesPage from './pages/AllPartiesPage';
 import CampaignHQPage from './pages/CampaignHQPage';
+import NotificationsPage from './pages/NotificationsPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import { allStates, stateData, stanceScale } from './state-data';
 import StatePage from './pages/StatePage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import NotificationPreviewManager from './components/NotificationPreview';
 
 // --- REGISTRATION DROPDOWN OPTIONS ---
 const genderOptions = ["Male", "Female", "Non-binary", "Other", "Prefer not to say"];
@@ -31,6 +34,7 @@ const ageOptions = Array.from({ length: (120 - 18) + 1 }, (_, i) => 18 + i); // 
 
 function AppContent() {
   const { user: currentUser, loading, logout } = useAuth();
+  const { showError } = useNotification();
   const [gameDate, setGameDate] = useState(null);
 
   useEffect(() => {
@@ -74,11 +78,15 @@ function AppContent() {
                     <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
                     <Route path="/parties" element={<AllPartiesPage />} />
                     <Route path="/campaign-hq" element={<CampaignHQPage />} />
+                    <Route path="/notifications" element={<NotificationsPage />} />
                     <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                     <Route path="/terms-of-service" element={<TermsOfServicePage />} />
                     <Route path="*" element={<Navigate to="/" />} />
                   </Routes>
                 </main>
+                
+                {/* Notification Preview Manager for bottom-right popups */}
+                <NotificationPreviewManager currentUser={currentUser} />
               </>
             ) : (
               <>
@@ -100,7 +108,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <NotificationProvider>
+        <AppContent />
+      </NotificationProvider>
     </AuthProvider>
   );
 }
@@ -168,18 +178,123 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess }) => {
     return (
         <>
             <div className="max-w-md mx-auto mt-10 p-6 bg-gray-800 rounded-lg shadow-xl">
-                <h2 className="text-2xl font-bold mb-6 text-center">{isRegister ? "Create Account" : "Login"}</h2>
+                <h2 className="text-2xl font-bold mb-4 text-center text-blue-300">
+                    {isRegister ? "Create Your Politician Character" : "Login"}
+                </h2>
+                
+                {/* Registration Disclaimer */}
+                {isRegister && (
+                    <div className="mb-6 p-4 bg-yellow-900/30 border border-yellow-600/50 rounded-lg">
+                        <h3 className="text-yellow-300 font-semibold mb-2 flex items-center">
+                            <span className="mr-2">⚠️</span>
+                            Create a Fictional Politician
+                        </h3>
+                        <div className="text-yellow-200 text-sm space-y-1">
+                            <p>• <strong>DO NOT</strong> use your real name or personal information</p>
+                            <p>• Create a <strong>fictional politician character</strong> for this game</p>
+                            <p>• Your username will be auto-generated as: <span className="font-mono">FirstName.LastName</span></p>
+                            <p>• Use realistic politician names (letters, spaces, hyphens, apostrophes only)</p>
+                        </div>
+                    </div>
+                )}
+
                 {error && <p className="bg-red-500/20 text-red-400 p-2 rounded mb-4 text-center">{error}</p>}
                 <form onSubmit={handleAuth} className="space-y-4">
-                    {isRegister && (<div className="grid grid-cols-2 gap-4">
-                        <input name="firstName" placeholder="First Name" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                        <input name="lastName" placeholder="Last Name" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                    </div>)}
-                    <input name="username" placeholder="Username" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                    {isRegister && <input name="email" type="email" placeholder="Email" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>}
-                    <input name="password" type="password" placeholder="Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                    {isRegister && <input name="confirmPassword" type="password" placeholder="Confirm Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>}
+                    {isRegister && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">
+                                    Politician First Name *
+                                </label>
+                                <input 
+                                    name="firstName" 
+                                    placeholder="e.g., John" 
+                                    onChange={handleChange} 
+                                    required 
+                                    className="p-2 bg-gray-700 rounded w-full border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                    pattern="[a-zA-ZÀ-ÿĀ-žА-я\s\-'.]+"
+                                    title="Only letters, spaces, hyphens, apostrophes, and periods allowed"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-1">
+                                    Politician Last Name *
+                                </label>
+                                <input 
+                                    name="lastName" 
+                                    placeholder="e.g., Smith" 
+                                    onChange={handleChange} 
+                                    required 
+                                    className="p-2 bg-gray-700 rounded w-full border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                    pattern="[a-zA-ZÀ-ÿĀ-žА-я\s\-'.]+"
+                                    title="Only letters, spaces, hyphens, apostrophes, and periods allowed"
+                                />
+                            </div>
+                        </div>
+                    )}
                     
+                    {/* Username field only for login */}
+                    {!isRegister && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                                Username
+                            </label>
+                            <input 
+                                name="username" 
+                                placeholder="FirstName.LastName" 
+                                onChange={handleChange} 
+                                required 
+                                className="p-2 bg-gray-700 rounded w-full border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
+                        </div>
+                    )}
+                    
+                    {isRegister && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                                Email Address *
+                            </label>
+                            <input 
+                                name="email" 
+                                type="email" 
+                                placeholder="your.email@example.com" 
+                                onChange={handleChange} 
+                                required 
+                                className="p-2 bg-gray-700 rounded w-full border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
+                        </div>
+                    )}
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">
+                            Password
+                        </label>
+                        <input 
+                            name="password" 
+                            type="password" 
+                            placeholder="Password" 
+                            onChange={handleChange} 
+                            required 
+                            className="p-2 bg-gray-700 rounded w-full border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                    </div>
+                    
+                    {isRegister && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-1">
+                                Confirm Password
+                            </label>
+                            <input 
+                                name="confirmPassword" 
+                                type="password" 
+                                placeholder="Confirm Password" 
+                                onChange={handleChange} 
+                                required 
+                                className="p-2 bg-gray-700 rounded w-full border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
+                        </div>
+                    )}
+
                     {/* Legal Agreement Button for Registration */}
                     {isRegister && (
                         <div className="pt-2">
@@ -212,7 +327,7 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess }) => {
                         disabled={loading || (isRegister && !policiesAccepted)} 
                         className="w-full bg-blue-600 p-2 rounded hover:bg-blue-700 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
                     >
-                        {loading ? "Loading..." : (isRegister ? "Register" : "Login")}
+                        {loading ? "Loading..." : (isRegister ? "Create Politician" : "Login")}
                     </button>
                     <p className="text-center text-sm text-gray-400">
                         {isRegister ? "Already have an account?" : "No account?"}
@@ -276,7 +391,7 @@ const ProfileSetup = ({ currentUserData, onSetupComplete }) => {
     const finishSetup = async () => {
         setError('');
         if (!profileData.party || !profileData.home_state || !profileData.gender || !profileData.race || !profileData.religion || !profileData.age) {
-            alert("Please complete all required fields: Party, Home State, Gender, Age, Race, and Religion.");
+            showError("Please complete all required fields: Party, Home State, Gender, Age, Race, and Religion.");
             return;
         }
         setIsSaving(true);
@@ -320,7 +435,15 @@ const ProfileSetup = ({ currentUserData, onSetupComplete }) => {
     // JSX for ProfileSetup remains the same as the last version you provided
     return (
         <div className="max-w-2xl mx-auto mt-10 md:mt-20 p-6 bg-gray-800 rounded-lg space-y-6 shadow-xl">
-            <h2 className="text-2xl font-bold text-center text-blue-300">Create Your Political Persona</h2>
+            <div className="text-center">
+                <h2 className="text-2xl font-bold text-blue-300">Create Your Political Persona</h2>
+                <div className="mt-4 p-3 bg-blue-900/30 border border-blue-600/50 rounded-lg">
+                    <p className="text-blue-200 text-sm">
+                        <span className="font-semibold">Remember:</span> You are customizing your <strong>fictional politician character</strong> - 
+                        this information represents your in-game persona, not your real identity.
+                    </p>
+                </div>
+            </div>
             {error && <p className="bg-red-500/20 text-red-300 p-3 rounded text-sm text-center">{error}</p>}
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
