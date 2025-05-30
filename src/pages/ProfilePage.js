@@ -15,6 +15,8 @@ import CandidateFinanceWidget from '../components/CandidateFinanceWidget';
 import { formatPercentage } from '../utils/formatters';
 import EditableField from '../components/EditableField';
 import ReadOnlyField from '../components/ReadOnlyField';
+import PositionBadge from '../components/PositionBadge';
+import ElectoralHistory from '../components/ElectoralHistory';
 
 // Helper to get stance label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value, 10))?.label || 'Moderate';
@@ -386,20 +388,11 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     };
 
     const copyProfileLink = () => {
-        if (profileData && profileData.user_id) {
-            const link = `${window.location.origin}/profile/${profileData.user_id}`;
-            navigator.clipboard.writeText(link).then(() => {
-                setJustCopied(true);
-                setTimeout(() => setJustCopied(false), 2000);
-            });
-        }
-    };
-
-    const renderGubernatorialHistory = (history) => {
-        if (!history || typeof history !== 'object' || Object.keys(history).length === 0) {
-            return <p className="text-sm text-gray-500">No gubernatorial history.</p>;
-        }
-        return ( <ul className="space-y-2"> {Object.entries(history).map(([state, data]) => ( <li key={state} className="text-sm"> <strong className="text-gray-300">{state}:</strong> {data.terms_served} term(s) served. {data.previous_terms && data.previous_terms.length > 0 && ( <ul className="list-disc list-inside pl-4 text-xs text-gray-400"> {data.previous_terms.map((term, i) => <li key={i}>{term.start_year} - {term.end_year}</li>)} </ul> )} </li> ))} </ul> );
+        const profileUrl = `${window.location.origin}/profile/${profileData.user_id}`;
+        navigator.clipboard.writeText(profileUrl).then(() => {
+            setJustCopied(true);
+            setTimeout(() => setJustCopied(false), 2000);
+        });
     };
 
     if (loading) return <div className="text-center py-10 text-gray-400">Loading profile...</div>;
@@ -453,7 +446,28 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                     </div>
 
                     <div className="flex-grow text-center sm:text-left">
-                        <h2 className="text-3xl font-bold text-blue-300"> {profileData.first_name} {profileData.last_name} <span className="text-lg text-gray-400 ml-2">(@{profileData.username || 'N/A'})</span> </h2>
+                        <h2 className="text-3xl font-bold text-blue-300"> 
+                            {profileData.first_name} {profileData.last_name} 
+                            <span className="text-lg text-gray-400 ml-2">(@{profileData.username || 'N/A'})</span> 
+                        </h2>
+                        
+                        {/* Position Badges */}
+                        <div className="flex flex-wrap gap-2 mt-3 justify-center sm:justify-start">
+                            {/* Party Leadership Badge */}
+                            {profileData.party_leadership_role && (
+                                <PositionBadge 
+                                    position={profileData.party_leadership_role} 
+                                    party={profileData.party}
+                                />
+                            )}
+                            
+                            {/* Elected Office Badge */}
+                            {profileData.current_office && profileData.current_office !== 'Citizen' && (
+                                <PositionBadge 
+                                    office={profileData.current_office}
+                                />
+                            )}
+                        </div>
                     </div>
                      {isOwnProfile && (
                         <div className="flex items-center gap-2 mt-3 sm:mt-0 sm:ml-auto shrink-0">
@@ -549,7 +563,14 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                              <ReadOnlyField label="Elections Won" value={profileData.elections_won || 0} />
                              <ReadOnlyField label="Elections Lost" value={profileData.elections_lost || 0} />
                              <ReadOnlyField label="Total Votes Received" value={profileData.total_votes_received?.toLocaleString() || 0} />
-                             <div className="mt-3"> <h4 className="text-sm font-semibold text-gray-200 mb-1">Gubernatorial History:</h4> {renderGubernatorialHistory(profileData.gubernatorial_history)} </div>
+                             
+                             <div className="mt-4"> 
+                                 <h4 className="text-sm font-semibold text-gray-200 mb-2">Electoral History:</h4> 
+                                 <ElectoralHistory 
+                                     electoralHistory={profileData.electoral_history || {}}
+                                     gubernatorialHistory={profileData.gubernatorial_history || {}}
+                                 />
+                             </div>
                         </InfoCard>
                     </div>
                 </div>
