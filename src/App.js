@@ -124,8 +124,13 @@ function AuthRouter() {
         setProfileDataForSetup(initialProfile);
     };
 
+    const handleSetupComplete = (updatedProfile) => {
+        setUser(updatedProfile);
+        setProfileDataForSetup(null); // Clear the setup state
+    };
+
     if(profileDataForSetup) {
-        return <ProfileSetup currentUserData={profileDataForSetup} onSetupComplete={() => setUser(profileDataForSetup)} />
+        return <ProfileSetup currentUserData={profileDataForSetup} onSetupComplete={handleSetupComplete} />
     }
     return <AuthScreen action={authAction} setAction={setAuthAction} onRegistrationSuccess={handleRegistrationSuccess} />
 }
@@ -374,7 +379,7 @@ const ProfileSetup = ({ currentUserData, onSetupComplete }) => {
     const finishSetup = async () => {
         setError('');
         if (!profileData.party || !profileData.home_state || !profileData.gender || !profileData.race || !profileData.religion || !profileData.age) {
-            showError("Please complete all required fields: Party, Home State, Gender, Age, Race, and Religion.");
+            setError("Please complete all required fields: Party, Home State, Gender, Age, Race, and Religion.");
             return;
         }
         setIsSaving(true);

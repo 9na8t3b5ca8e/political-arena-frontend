@@ -21,9 +21,12 @@ export const formatCurrency = (amount) => {
  * @returns {string} The formatted percentage string
  */
 export const formatPercentage = (value, decimals = 1) => {
-    if (value === null || value === undefined) return '0%';
+    if (value === null || value === undefined || value === '' || isNaN(value)) return '0%';
     
-    return `${value.toFixed(decimals)}%`;
+    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(numericValue)) return '0%';
+    
+    return `${numericValue.toFixed(decimals)}%`;
 };
 
 /**
