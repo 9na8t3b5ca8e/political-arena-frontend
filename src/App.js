@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { apiCall } from './api';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import PolicyAgreementModal from './components/PolicyAgreementModal';
 import HomePage from './pages/HomePage';
 import MapPage from './pages/MapPage';
 import ProfilePage from './pages/ProfilePage';
@@ -123,11 +124,23 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess }) => {
     const [form, setForm] = useState({});
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [policiesAccepted, setPoliciesAccepted] = useState(false);
+    const [showPolicyModal, setShowPolicyModal] = useState(false);
 
     const handleAuth = async (e) => {
-        e.preventDefault(); setLoading(true); setError('');
+        e.preventDefault(); 
+        setLoading(true); 
+        setError('');
+        
         try {
-            if (action === 'register' && form.password !== form.confirmPassword) throw new Error("Passwords do not match.");
+            if (action === 'register') {
+                if (form.password !== form.confirmPassword) {
+                    throw new Error("Passwords do not match.");
+                }
+                if (!policiesAccepted) {
+                    throw new Error("You must accept both the Privacy Policy and Terms of Service to register.");
+                }
+            }
             
             const response = await apiCall(`/auth/${action}`, { method: 'POST', body: JSON.stringify(form) });
             localStorage.setItem('authToken', response.token);
@@ -137,36 +150,83 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess }) => {
                 const initialProfile = await apiCall('/auth/profile');
                 onRegistrationSuccess(initialProfile); // Pass this to AuthRouter
             }
-        } catch (err) { setError(err.message); } 
-        finally { setLoading(false); }
+        } catch (err) { 
+            setError(err.message); 
+        } 
+        finally { 
+            setLoading(false); 
+        }
     }
 
     const handleChange = (e) => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
     const isRegister = action === 'register';
 
+    const handlePolicyAgreement = (agreed) => {
+        setPoliciesAccepted(agreed);
+    };
+
     return (
-        <div className="max-w-md mx-auto mt-10 p-6 bg-gray-800 rounded-lg shadow-xl">
-            <h2 className="text-2xl font-bold mb-6 text-center">{isRegister ? "Create Account" : "Login"}</h2>
-            {error && <p className="bg-red-500/20 text-red-400 p-2 rounded mb-4 text-center">{error}</p>}
-            <form onSubmit={handleAuth} className="space-y-4">
-                {isRegister && (<div className="grid grid-cols-2 gap-4">
-                    <input name="firstName" placeholder="First Name" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                    <input name="lastName" placeholder="Last Name" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                </div>)}
-                <input name="username" placeholder="Username" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                {isRegister && <input name="email" type="email" placeholder="Email" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>}
-                <input name="password" type="password" placeholder="Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
-                {isRegister && <input name="confirmPassword" type="password" placeholder="Confirm Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>}
-                
-                {/* --- GENDER, RACE, RELIGION, AGE FIELDS REMOVED FROM HERE --- */}
-                
-                <button type="submit" disabled={loading} className="w-full bg-blue-600 p-2 rounded hover:bg-blue-700 font-bold disabled:bg-gray-500">{loading ? "Loading..." : (isRegister ? "Register" : "Login")}</button>
-                <p className="text-center text-sm text-gray-400">
-                    {isRegister ? "Already have an account?" : "No account?"}
-                    <button type="button" onClick={() => setAction(isRegister ? 'login' : 'register')} className="text-blue-400 hover:underline ml-1">{isRegister ? 'Login' : 'Create one'}</button>
-                </p>
-            </form>
-        </div>
+        <>
+            <div className="max-w-md mx-auto mt-10 p-6 bg-gray-800 rounded-lg shadow-xl">
+                <h2 className="text-2xl font-bold mb-6 text-center">{isRegister ? "Create Account" : "Login"}</h2>
+                {error && <p className="bg-red-500/20 text-red-400 p-2 rounded mb-4 text-center">{error}</p>}
+                <form onSubmit={handleAuth} className="space-y-4">
+                    {isRegister && (<div className="grid grid-cols-2 gap-4">
+                        <input name="firstName" placeholder="First Name" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
+                        <input name="lastName" placeholder="Last Name" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
+                    </div>)}
+                    <input name="username" placeholder="Username" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
+                    {isRegister && <input name="email" type="email" placeholder="Email" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>}
+                    <input name="password" type="password" placeholder="Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>
+                    {isRegister && <input name="confirmPassword" type="password" placeholder="Confirm Password" onChange={handleChange} required className="p-2 bg-gray-700 rounded w-full"/>}
+                    
+                    {/* Legal Agreement Button for Registration */}
+                    {isRegister && (
+                        <div className="pt-2">
+                            {!policiesAccepted ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPolicyModal(true)}
+                                    className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold transition-colors"
+                                >
+                                    Review & Agree to Legal Policies
+                                </button>
+                            ) : (
+                                <div className="w-full px-4 py-3 bg-gray-600 text-gray-300 rounded-md font-medium text-center flex items-center justify-center space-x-2">
+                                    <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span>Agreed to Privacy Policy & Terms of Service</span>
+                                </div>
+                            )}
+                            {!policiesAccepted && (
+                                <p className="text-xs text-gray-500 text-center mt-2">
+                                    <span className="text-red-400">*</span> Required to create an account
+                                </p>
+                            )}
+                        </div>
+                    )}
+                    
+                    <button 
+                        type="submit" 
+                        disabled={loading || (isRegister && !policiesAccepted)} 
+                        className="w-full bg-blue-600 p-2 rounded hover:bg-blue-700 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
+                    >
+                        {loading ? "Loading..." : (isRegister ? "Register" : "Login")}
+                    </button>
+                    <p className="text-center text-sm text-gray-400">
+                        {isRegister ? "Already have an account?" : "No account?"}
+                        <button type="button" onClick={() => setAction(isRegister ? 'login' : 'register')} className="text-blue-400 hover:underline ml-1">{isRegister ? 'Login' : 'Create one'}</button>
+                    </p>
+                </form>
+            </div>
+
+            <PolicyAgreementModal
+                isOpen={showPolicyModal}
+                onClose={() => setShowPolicyModal(false)}
+                onAgreementComplete={handlePolicyAgreement}
+            />
+        </>
     );
 };
 
