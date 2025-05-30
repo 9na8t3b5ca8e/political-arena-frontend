@@ -25,6 +25,11 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
     const [electionCycleDateDisplay, setElectionCycleDateDisplay] = useState('');
     const [electionCycleEndDisplay, setElectionCycleEndDisplay] = useState('');
 
+    // New state for enhanced features
+    const [currentUserVotes, setCurrentUserVotes] = useState({});
+    const [voteTallies, setVoteTallies] = useState({ chair: [], vice_chair: [], treasurer: [], total_eligible_voters: 0 });
+    const [userCandidacies, setUserCandidacies] = useState([]);
+
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
@@ -35,12 +40,28 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [partyRes, candidatesRes] = await Promise.all([
+                const [partyRes, candidatesRes, votesRes, talliesRes] = await Promise.all([
                     apiCall(`/party/${partyId}`),
-                    apiCall(`/party/${partyId}/candidates`)
+                    apiCall(`/party/${partyId}/candidates`),
+                    apiCall(`/party/${partyId}/votes/current`),
+                    apiCall(`/party/${partyId}/votes/tallies`)
                 ]);
                 setPartyDetails(partyRes);
                 setCandidates(candidatesRes);
+                setCurrentUserVotes(votesRes);
+                setVoteTallies(talliesRes);
+
+                // Set initial vote selections based on current user votes
+                setSelectedChairVote(votesRes.chair_vote_user_id ? votesRes.chair_vote_user_id.toString() : '');
+                setSelectedViceChairVote(votesRes.vice_chair_vote_user_id ? votesRes.vice_chair_vote_user_id.toString() : '');
+                setSelectedTreasurerVote(votesRes.treasurer_vote_user_id ? votesRes.treasurer_vote_user_id.toString() : '');
+
+                // Check if current user is running for any positions
+                if (currentUser) {
+                    const userCands = candidatesRes.filter(c => c.user_id === currentUser.id);
+                    setUserCandidacies(userCands);
+                }
+
                 setLoading(false);
 
                 // Calculate and set election cycle date for display
@@ -64,7 +85,28 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
         };
 
         fetchData();
-    }, [partyId]);
+    }, [partyId, currentUser]);
+
+    const refreshData = async () => {
+        try {
+            const [candidatesRes, votesRes, talliesRes] = await Promise.all([
+                apiCall(`/party/${partyId}/candidates`),
+                apiCall(`/party/${partyId}/votes/current`),
+                apiCall(`/party/${partyId}/votes/tallies`)
+            ]);
+            setCandidates(candidatesRes);
+            setCurrentUserVotes(votesRes);
+            setVoteTallies(talliesRes);
+
+            // Update user candidacies
+            if (currentUser) {
+                const userCands = candidatesRes.filter(c => c.user_id === currentUser.id);
+                setUserCandidacies(userCands);
+            }
+        } catch (err) {
+            console.error('Error refreshing data:', err);
+        }
+    };
 
     const handleFundingProposal = async (e) => {
         e.preventDefault();
@@ -104,11 +146,28 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
             });
             // Reset form
             setSelectedPosition('');
-            // Refresh candidates
-            const candidatesRes = await apiCall(`/party/${partyId}/candidates`);
-            setCandidates(candidatesRes);
+            // Refresh data
+            await refreshData();
+            setError(null);
         } catch (err) {
             setError(err.message || 'Failed to submit candidacy');
+        }
+    };
+
+    const handleWithdrawCandidacy = async (position) => {
+        try {
+            await apiCall('/party/leadership/withdraw', {
+                method: 'POST',
+                body: JSON.stringify({
+                    partyId,
+                    position
+                })
+            });
+            // Refresh data
+            await refreshData();
+            setError(null);
+        } catch (err) {
+            setError(err.message || 'Failed to withdraw candidacy');
         }
     };
 
@@ -124,11 +183,11 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                     treasurerVoteId: selectedTreasurerVote ? parseInt(selectedTreasurerVote) : null
                 })
             });
-            // Reset selections
-            setSelectedChairVote('');
-            setSelectedViceChairVote('');
-            setSelectedTreasurerVote('');
+            
+            // Refresh data to get updated votes and tallies
+            await refreshData();
             setError(null); // Clear previous errors
+            
             // Refresh party details (might show updated leadership if election processed)
             const partyRes = await apiCall(`/party/${partyId}`);
             setPartyDetails(partyRes);
@@ -138,6 +197,12 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
         }
     };
 
+    const getVoteCount = (position, candidateId) => {
+        const tallies = voteTallies[position] || [];
+        const tally = tallies.find(t => t.candidate_id === candidateId);
+        return tally ? tally.vote_count : 0;
+    };
+
     if (loading) return <div className="p-4">Loading...</div>;
     if (error) return <div className="p-4 text-red-500 bg-red-100 border border-red-400 rounded">{error}</div>;
 
@@ -145,6 +210,10 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
         (partyDetails.chair_user_id === currentUser.id || 
          partyDetails.vice_chair_user_id === currentUser.id || 
          partyDetails.treasurer_user_id === currentUser.id);
+
+    const availablePositions = ['chair', 'vice_chair', 'treasurer'].filter(position => 
+        !userCandidacies.some(candidacy => candidacy.position_contested === position)
+    );
 
     return (
         <div className="p-4 space-y-6 text-gray-900">
@@ -275,39 +344,65 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
             )}
 
             {/* Leadership Candidacy Form */}
-            <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-semibold mb-4">Submit Leadership Candidacy</h3>
-                <form onSubmit={handleLeadershipCandidacy} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                            Position
-                        </label>
-                        <select
-                            value={selectedPosition}
-                            onChange={(e) => setSelectedPosition(e.target.value)}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            required
-                        >
-                            <option value="">Select a position...</option>
-                            <option value="chair">Chair</option>
-                            <option value="vice_chair">Vice Chair</option>
-                            <option value="treasurer">Treasurer</option>
-                        </select>
+            {userCandidacies.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-xl font-semibold mb-4">Current Candidacies</h3>
+                    <div className="space-y-3">
+                        {userCandidacies.map((candidacy) => (
+                            <div key={candidacy.position_contested} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md">
+                                <span className="font-medium text-blue-800">
+                                    Running for {candidacy.position_contested.replace('_', ' ')}
+                                </span>
+                                <button
+                                    onClick={() => handleWithdrawCandidacy(candidacy.position_contested)}
+                                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+                                >
+                                    Withdraw from {candidacy.position_contested.replace('_', ' ')} Race
+                                </button>
+                            </div>
+                        ))}
                     </div>
-                    <button
-                        type="submit"
-                        className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
-                    >
-                        Submit Candidacy
-                    </button>
-                </form>
-            </div>
+                </div>
+            )}
+
+            {availablePositions.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-xl font-semibold mb-4">Submit Leadership Candidacy</h3>
+                    <form onSubmit={handleLeadershipCandidacy} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">
+                                Position
+                            </label>
+                            <select
+                                value={selectedPosition}
+                                onChange={(e) => setSelectedPosition(e.target.value)}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                required
+                            >
+                                <option value="">Select a position...</option>
+                                {availablePositions.map((position) => (
+                                    <option key={position} value={position}>
+                                        {position.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <button
+                            type="submit"
+                            className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
+                        >
+                            Submit Candidacy
+                        </button>
+                    </form>
+                </div>
+            )}
 
             {/* Leadership Election Voting Section */}
             <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-xl font-semibold mb-2">Party Leadership Election</h3>
                 <p className="text-sm text-gray-600 mb-1">Voting for the week of: <span className="font-semibold">{electionCycleDateDisplay}</span></p>
-                <p className="text-xs text-blue-700 mb-4">Voting closes: <span className="font-semibold">{electionCycleEndDisplay}</span>. Results are applied at the start of next week.</p>
+                <p className="text-xs text-blue-700 mb-2">Voting closes: <span className="font-semibold">{electionCycleEndDisplay}</span>. Results are applied at the start of next week.</p>
+                <p className="text-xs text-gray-600 mb-4">Total eligible voters: <span className="font-semibold">{voteTallies.total_eligible_voters}</span></p>
                 
                 {candidates.length === 0 ? (
                     <p className="text-gray-500">No candidates have run for leadership positions in the current election cycle.</p>
@@ -342,27 +437,42 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                                                 />
                                                 <span className="text-gray-600 italic">Abstain (no vote)</span>
                                             </label>
-                                            {positionCandidates.map((candidate) => (
-                                                <label key={candidate.id} className="flex items-center space-x-2 p-2 border rounded-md hover:bg-gray-100 cursor-pointer">
-                                                    <input 
-                                                        type="radio" 
-                                                        name={position} 
-                                                        value={candidate.user_id} 
-                                                        checked={currentVote === candidate.user_id.toString()} 
-                                                        onChange={(e) => setCurrentVote(e.target.value)}
-                                                        className="form-radio h-4 w-4 text-blue-600"
-                                                    />
-                                                    <PlayerDisplayName 
-                                                        userId={candidate.user_id} 
-                                                        firstName={candidate.first_name} 
-                                                        lastName={candidate.last_name} 
-                                                        profilePictureUrl={candidate.profile_picture_url}
-                                                        includePic={true}
-                                                        picSize="h-8 w-8"
-                                                        textClass="text-gray-800"
-                                                    />
-                                                </label>
-                                            ))}
+                                            {positionCandidates.map((candidate) => {
+                                                const voteCount = getVoteCount(position, candidate.user_id);
+                                                return (
+                                                    <label key={candidate.id} className="flex items-center justify-between p-2 border rounded-md hover:bg-gray-100 cursor-pointer">
+                                                        <div className="flex items-center space-x-2">
+                                                            <input 
+                                                                type="radio" 
+                                                                name={position} 
+                                                                value={candidate.user_id} 
+                                                                checked={currentVote === candidate.user_id.toString()} 
+                                                                onChange={(e) => setCurrentVote(e.target.value)}
+                                                                className="form-radio h-4 w-4 text-blue-600"
+                                                            />
+                                                            <PlayerDisplayName 
+                                                                userId={candidate.user_id} 
+                                                                firstName={candidate.first_name} 
+                                                                lastName={candidate.last_name} 
+                                                                profilePictureUrl={candidate.profile_picture_url}
+                                                                includePic={true}
+                                                                picSize="h-8 w-8"
+                                                                textClass="text-gray-800"
+                                                            />
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <span className="text-sm font-semibold text-blue-600">
+                                                                {voteCount} vote{voteCount !== 1 ? 's' : ''}
+                                                            </span>
+                                                            {voteTallies.total_eligible_voters > 0 && (
+                                                                <span className="text-xs text-gray-500">
+                                                                    ({Math.round((voteCount / voteTallies.total_eligible_voters) * 100)}%)
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>

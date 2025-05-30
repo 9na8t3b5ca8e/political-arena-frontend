@@ -1,14 +1,35 @@
 // frontend/src/components/Navbar.js
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon, Users } from 'lucide-react';
 
 export default function Navbar({ currentUser, logout, gameDate }) {
+  const [isPartiesDropdownOpen, setIsPartiesDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const navLinkStyles = ({ isActive }) => ({
     color: isActive ? '#60a5fa' : '#9ca3af',
     fontWeight: isActive ? 'bold' : 'normal',
     whiteSpace: 'nowrap',
   });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsPartiesDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const togglePartiesDropdown = () => {
+    setIsPartiesDropdownOpen(!isPartiesDropdownOpen);
+  };
 
   return (
     <header className="bg-gray-800 p-3 sm:p-4 rounded-lg mb-6 shadow-lg">
@@ -29,13 +50,31 @@ export default function Navbar({ currentUser, logout, gameDate }) {
             <NavLink to="/map" style={navLinkStyles} className="text-sm sm:text-base">USA Map</NavLink>
             {currentUser && <NavLink to={`/profile/${currentUser.id}`} style={navLinkStyles} className="text-sm sm:text-base">Profile</NavLink>}
             {currentUser && (
-                <div className="relative group">
-                    <button style={navLinkStyles({ isActive: false })} className="flex items-center text-sm sm:text-base text-gray-400 group-hover:text-gray-200 focus:outline-none">
-                        <Users size={14} className="mr-1 hidden sm:inline-block"/> Parties <span className="ml-1 text-xs">▼</span>
+                <div className="relative" ref={dropdownRef}>
+                    <button 
+                        onClick={togglePartiesDropdown}
+                        style={navLinkStyles({ isActive: false })} 
+                        className={`flex items-center text-sm sm:text-base focus:outline-none ${isPartiesDropdownOpen ? 'text-gray-200' : 'text-gray-400 hover:text-gray-200'}`}
+                    >
+                        <Users size={14} className="mr-1 hidden sm:inline-block"/> Parties <span className={`ml-1 text-xs transition-transform duration-200 ${isPartiesDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
                     </button>
-                    <div className="absolute left-0 mt-2 w-48 bg-gray-700 rounded-md shadow-lg py-1 z-20 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150 ease-in-out invisible group-hover:visible group-focus-within:visible">
-                        <NavLink to={currentUser.party_id ? `/party/${currentUser.party_id}` : '/party'} style={navLinkStyles} className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left">My Party</NavLink>
-                        <NavLink to="/parties" style={navLinkStyles} className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left">View All Parties</NavLink>
+                    <div className={`absolute left-0 mt-2 w-48 bg-gray-700 rounded-md shadow-lg py-1 z-20 transition-all duration-200 ease-in-out ${isPartiesDropdownOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
+                        <NavLink 
+                            to={currentUser.party_id ? `/party/${currentUser.party_id}` : '/party'} 
+                            style={navLinkStyles} 
+                            className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left"
+                            onClick={() => setIsPartiesDropdownOpen(false)}
+                        >
+                            My Party
+                        </NavLink>
+                        <NavLink 
+                            to="/parties" 
+                            style={navLinkStyles} 
+                            className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left"
+                            onClick={() => setIsPartiesDropdownOpen(false)}
+                        >
+                            View All Parties
+                        </NavLink>
                     </div>
                 </div>
             )}
