@@ -4,28 +4,91 @@ import { Link } from 'react-router-dom'; // Import Link
 import { apiCall } from '../api';
 import CampaignActions from '../components/CampaignActions';
 
-// Fundraising sub-component (can stay here or move to components folder)
-const Fundraising = ({ onFundraise }) => (
-    <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
-        <h3 className="font-bold text-lg mb-3 text-blue-200 border-b border-gray-700 pb-2">Quick Actions</h3>
-        <div className="space-y-2">
-            <button onClick={() => onFundraise('grassroots')} className="w-full text-left p-3 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 transition-colors duration-150">
-                <div className="font-bold text-gray-100">Grassroots Fundraising</div>
-                <div className="text-sm text-gray-400">+$2,500, +1% Approval. Costs 15 AP.</div>
-            </button>
-             <button onClick={() => onFundraise('major_donor')} className="w-full text-left p-3 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 transition-colors duration-150">
-                <div className="font-bold text-gray-100">Meet Major Donors</div>
-                <div className="text-sm text-gray-400">+$15,000, -2% Approval. Costs 25 AP. (Req: 40% AR)</div>
-            </button>
-             <button onClick={() => onFundraise('pac')} className="w-full text-left p-3 rounded-lg bg-yellow-600/20 hover:bg-yellow-600/30 transition-colors duration-150">
-                <div className="font-bold text-gray-100">Seek PAC Contribution</div>
-                <div className="text-sm text-gray-400">Gain $25,000, -5% Approval. Cost: 5 AP & 5 PC. (Requires you to have at least 10 PC)</div>
-            </button>
-        </div>
-    </div>
-);
+// Enhanced Fundraising sub-component with resource validation
+const Fundraising = ({ onFundraise, user, loadingFundraise }) => {
+    // Check resource requirements for each action
+    const canDoGrassroots = user.action_points >= 15;
+    const canDoMajorDonor = user.action_points >= 25 && user.approval_rating >= 40;
+    const canDoPAC = user.action_points >= 5 && user.political_capital >= 10;
 
-// New MiniProfile component
+    const getButtonClass = (canDo) => {
+        const baseClass = "w-full text-left p-3 rounded-lg transition-colors duration-150";
+        if (!canDo) {
+            return `${baseClass} bg-gray-700/30 cursor-not-allowed opacity-50`;
+        }
+        return `${baseClass} hover:bg-blue-600/30`;
+    };
+
+    const getGrassrootsClass = () => {
+        const baseClass = getButtonClass(canDoGrassroots);
+        return canDoGrassroots ? `${baseClass} bg-blue-600/20` : baseClass;
+    };
+
+    const getMajorDonorClass = () => {
+        const baseClass = getButtonClass(canDoMajorDonor);
+        return canDoMajorDonor ? `${baseClass} bg-purple-600/20` : baseClass;
+    };
+
+    const getPACClass = () => {
+        const baseClass = getButtonClass(canDoPAC);
+        return canDoPAC ? `${baseClass} bg-yellow-600/20` : baseClass;
+    };
+
+    return (
+        <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
+            <h3 className="font-bold text-lg mb-3 text-blue-200 border-b border-gray-700 pb-2">Quick Actions</h3>
+            <div className="space-y-2">
+                <button 
+                    onClick={() => canDoGrassroots && onFundraise('grassroots')} 
+                    disabled={!canDoGrassroots || loadingFundraise}
+                    className={getGrassrootsClass()}
+                >
+                    <div className="font-bold text-gray-100">Grassroots Fundraising</div>
+                    <div className="text-sm text-gray-400">+$2,500, +1% Approval. Costs 15 AP.</div>
+                    {!canDoGrassroots && (
+                        <div className="text-xs text-red-400 mt-1">
+                            Need 15 AP (you have {user.action_points})
+                        </div>
+                    )}
+                </button>
+                
+                <button 
+                    onClick={() => canDoMajorDonor && onFundraise('major_donor')} 
+                    disabled={!canDoMajorDonor || loadingFundraise}
+                    className={getMajorDonorClass()}
+                >
+                    <div className="font-bold text-gray-100">Meet Major Donors</div>
+                    <div className="text-sm text-gray-400">+$15,000, -2% Approval. Costs 25 AP. (Req: 40% AR)</div>
+                    {!canDoMajorDonor && (
+                        <div className="text-xs text-red-400 mt-1">
+                            {user.action_points < 25 && `Need 25 AP (you have ${user.action_points})`}
+                            {user.action_points >= 25 && user.approval_rating < 40 && `Need 40% approval (you have ${user.approval_rating}%)`}
+                            {user.action_points < 25 && user.approval_rating < 40 && `Need 25 AP and 40% approval`}
+                        </div>
+                    )}
+                </button>
+                
+                <button 
+                    onClick={() => canDoPAC && onFundraise('pac')} 
+                    disabled={!canDoPAC || loadingFundraise}
+                    className={getPACClass()}
+                >
+                    <div className="font-bold text-gray-100">Seek PAC Contribution</div>
+                    <div className="text-sm text-gray-400">Gain $25,000, -5% Approval. Cost: 5 AP & 10 PC.</div>
+                    {!canDoPAC && (
+                        <div className="text-xs text-red-400 mt-1">
+                            {user.action_points < 5 && user.political_capital < 10 && `Need 5 AP and 10 PC`}
+                            {user.action_points < 5 && user.political_capital >= 10 && `Need 5 AP (you have ${user.action_points})`}
+                            {user.action_points >= 5 && user.political_capital < 10 && `Need 10 PC (you have ${user.political_capital})`}
+                        </div>
+                    )}
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// New MiniProfile component with enhanced resource information
 const MiniProfile = ({ user }) => (
     <div className="bg-gray-800 p-4 rounded-lg shadow-lg">
         <div className="flex justify-between items-start mb-4">
@@ -53,8 +116,16 @@ const MiniProfile = ({ user }) => (
                 <p className="text-gray-100">{user.political_capital} PC</p>
             </div>
             <div>
-                <p className="text-gray-400 text-sm">Action Points</p>
-                <p className="text-gray-100">{user.action_points} AP</p>
+                <p className="text-gray-400 text-sm flex items-center gap-1">
+                    Action Points
+                    <span className="text-xs bg-blue-600/20 px-1 rounded" title="Regenerates +10 every hour, max 200">
+                        +10/hr
+                    </span>
+                </p>
+                <p className={`text-gray-100 ${user.action_points < 15 ? 'text-yellow-400' : ''}`}>
+                    {user.action_points} AP
+                    {user.action_points < 15 && <span className="text-xs text-yellow-400 ml-1">(Low)</span>}
+                </p>
             </div>
             <div>
                 <p className="text-gray-400 text-sm">Approval Rating</p>
@@ -69,6 +140,24 @@ const MiniProfile = ({ user }) => (
                 <p className="text-gray-100">{user.campaign_strength}%</p>
             </div>
         </div>
+        
+        {/* Resource Warning Messages */}
+        {(user.action_points < 15 || user.political_capital < 10) && (
+            <div className="mt-4 p-3 bg-yellow-600/20 border border-yellow-600/30 rounded-lg">
+                <p className="text-yellow-300 text-sm font-semibold mb-1">Resource Alert:</p>
+                <div className="text-yellow-200 text-xs space-y-1">
+                    {user.action_points < 15 && (
+                        <p>• Low Action Points: Most actions require 15+ AP</p>
+                    )}
+                    {user.political_capital < 10 && (
+                        <p>• Low Political Capital: PAC funding requires 10+ PC</p>
+                    )}
+                    {user.action_points < 15 && (
+                        <p>• AP regenerates +10 every hour (max 200)</p>
+                    )}
+                </div>
+            </div>
+        )}
     </div>
 );
 
@@ -164,8 +253,8 @@ export default function HomePage({ currentUser, setCurrentUser }) {
       </div>
 
       <div className="space-y-6">
-        <Fundraising onFundraise={handleFundraise} /> 
-        <CampaignActions onAction={handleAction} />
+        <Fundraising onFundraise={handleFundraise} user={currentUser} loadingFundraise={loadingFundraise} /> 
+        <CampaignActions onAction={handleAction} currentUser={currentUser} />
       </div>
     </div>
   );
