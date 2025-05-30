@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
 import ActiveCampaignsCard from '../components/ActiveCampaignsCard';
-import PoliticalInteractionCard from '../components/PoliticalInteractionCard';
 import CandidateFinanceWidget from '../components/CandidateFinanceWidget';
 import { formatPercentage } from '../utils/formatters';
 import EditableField from '../components/EditableField';
