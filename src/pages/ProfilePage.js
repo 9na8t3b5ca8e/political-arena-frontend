@@ -206,8 +206,10 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     const handleProfilePictureChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            
             if (file.size > 5 * 1024 * 1024) {
-                setError("File size too large. Max 5MB allowed.");
+                setError(`File size too large (${fileSizeMB}MB). Maximum 5MB allowed. Try compressing your image or selecting a smaller file.`);
                 setSelectedProfilePictureFile(null);
                 setProfilePicturePreview(editableFields.profile_picture_url || null);
                 e.target.value = null;
@@ -223,6 +225,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             clearMessages();
             setSelectedProfilePictureFile(file);
             setProfilePicturePreview(URL.createObjectURL(file));
+            setSuccess(`Selected: ${file.name} (${fileSizeMB}MB)`);
         }
     };
 
@@ -231,6 +234,13 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             setError("No picture selected to upload.");
             return;
         }
+        
+        // Double-check file size before upload
+        if (selectedProfilePictureFile.size > 5 * 1024 * 1024) {
+            setError("File size too large. Please select a smaller image (max 5MB).");
+            return;
+        }
+        
         clearMessages();
         setIsUploadingPicture(true);
         const formData = new FormData();
@@ -249,9 +259,22 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             if (setCurrentUser) setCurrentUser(response.updatedProfile);
             initializeEditableFields(response.updatedProfile);
             setSelectedProfilePictureFile(null);
-            setSuccess(response.message || "Profile picture updated.");
+            setSuccess(response.message || "Profile picture updated successfully!");
         } catch (err) {
-            setError(err.message || "Failed to upload picture.");
+            let errorMessage = err.message || "Failed to upload picture.";
+            
+            // Provide more helpful error messages based on common issues
+            if (errorMessage.includes('413') || errorMessage.includes('too large') || errorMessage.includes('Content Too Large')) {
+                errorMessage = "Image file is too large. Please use an image under 5MB. You can compress your image using online tools or photo editing software.";
+            } else if (errorMessage.includes('400') || errorMessage.includes('Invalid file type')) {
+                errorMessage = "Invalid file type. Please use JPG, PNG, or GIF format only.";
+            } else if (errorMessage.includes('401') || errorMessage.includes('token')) {
+                errorMessage = "Session expired. Please log out and log back in.";
+            } else if (errorMessage.includes('500') || errorMessage.includes('Internal server error')) {
+                errorMessage = "Server error occurred. Please try again in a few moments.";
+            }
+            
+            setError(errorMessage);
         } finally {
             setIsUploadingPicture(false);
         }
@@ -404,6 +427,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                                     <UploadCloud size={14} className="mr-1.5"/> Change Picture
                                 </label>
                                 <input type="file" id="profilePictureInput" className="hidden" accept="image/png, image/jpeg, image/gif" onChange={handleProfilePictureChange} />
+                                <p className="text-xs text-gray-400 text-center mt-1 max-w-28">JPG, PNG, GIF • Max 5MB</p>
                                 {selectedProfilePictureFile && (
                                      <button onClick={handleProfilePictureUpload} disabled={isUploadingPicture} className="mt-2 w-full text-xs bg-green-600 hover:bg-green-700 text-white py-1 px-2 rounded">
                                         {isUploadingPicture ? "Uploading..." : "Upload New Picture"}
