@@ -1,11 +1,13 @@
 // frontend/src/components/Navbar.js
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon, Users } from 'lucide-react';
+import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon, Users, Settings, ChevronDown } from 'lucide-react';
 
 export default function Navbar({ currentUser, logout, gameDate }) {
   const [isPartiesDropdownOpen, setIsPartiesDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const partiesDropdownRef = useRef(null);
+  const profileDropdownRef = useRef(null);
 
   const navLinkStyles = ({ isActive }) => ({
     color: isActive ? '#60a5fa' : '#9ca3af',
@@ -13,11 +15,14 @@ export default function Navbar({ currentUser, logout, gameDate }) {
     whiteSpace: 'nowrap',
   });
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (partiesDropdownRef.current && !partiesDropdownRef.current.contains(event.target)) {
         setIsPartiesDropdownOpen(false);
+      }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setIsProfileDropdownOpen(false);
       }
     };
 
@@ -29,6 +34,12 @@ export default function Navbar({ currentUser, logout, gameDate }) {
 
   const togglePartiesDropdown = () => {
     setIsPartiesDropdownOpen(!isPartiesDropdownOpen);
+    setIsProfileDropdownOpen(false); // Close profile dropdown when opening parties
+  };
+
+  const toggleProfileDropdown = () => {
+    setIsProfileDropdownOpen(!isProfileDropdownOpen);
+    setIsPartiesDropdownOpen(false); // Close parties dropdown when opening profile
   };
 
   return (
@@ -50,7 +61,7 @@ export default function Navbar({ currentUser, logout, gameDate }) {
             <NavLink to="/map" style={navLinkStyles} className="text-sm sm:text-base">USA Map</NavLink>
             {currentUser && <NavLink to={`/profile/${currentUser.id}`} style={navLinkStyles} className="text-sm sm:text-base">Profile</NavLink>}
             {currentUser && (
-                <div className="relative" ref={dropdownRef}>
+                <div className="relative" ref={partiesDropdownRef}>
                     <button 
                         onClick={togglePartiesDropdown}
                         style={navLinkStyles({ isActive: false })} 
@@ -90,12 +101,34 @@ export default function Navbar({ currentUser, logout, gameDate }) {
                 </div>
                 )}
                 <div className="flex items-center space-x-2 sm:space-x-3">
-                {/* Profile Picture Thumbnail */}
-                {currentUser.profile_picture_url ? (
-                    <img src={currentUser.profile_picture_url} alt="PFP" className="h-6 w-6 rounded-full object-cover"/>
-                ) : (
-                    <UserIcon className="h-6 w-6 text-gray-400 p-0.5 border border-gray-500 rounded-full"/>
-                )}
+                {/* Profile Picture Thumbnail with Dropdown */}
+                <div className="relative" ref={profileDropdownRef}>
+                    <button 
+                        onClick={toggleProfileDropdown}
+                        className="flex items-center focus:outline-none hover:opacity-80 transition-opacity"
+                        title="Profile Menu"
+                    >
+                        {currentUser.profile_picture_url ? (
+                            <img src={currentUser.profile_picture_url} alt="PFP" className="h-6 w-6 rounded-full object-cover border border-gray-400"/>
+                        ) : (
+                            <UserIcon className="h-6 w-6 text-gray-400 p-0.5 border border-gray-500 rounded-full"/>
+                        )}
+                        <ChevronDown size={12} className={`ml-1 text-gray-400 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {/* Profile Dropdown Menu */}
+                    <div className={`absolute right-0 mt-2 w-40 bg-gray-700 rounded-md shadow-lg py-1 z-30 transition-all duration-200 ease-in-out ${isProfileDropdownOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
+                        <Link 
+                            to={`/profile/${currentUser.id}`}
+                            className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                            onClick={() => setIsProfileDropdownOpen(false)}
+                        >
+                            <Settings size={14} className="mr-2" />
+                            Settings
+                        </Link>
+                    </div>
+                </div>
+                
                 <div className="text-xs text-gray-300 whitespace-nowrap" title="Approval Rating"><TrendingUp className="inline-block text-green-400" size={14}/> {currentUser.approval_rating}%</div>
                 <div className="text-xs text-gray-300 whitespace-nowrap" title="Campaign Funds"><DollarSign className="inline-block text-yellow-400"  size={14}/> ${currentUser.campaign_funds?.toLocaleString()}</div>
                 <div className="text-xs text-gray-300 whitespace-nowrap" title="Political Capital"><Briefcase className="inline-block text-purple-400"  size={14}/> {currentUser.political_capital}</div>
