@@ -466,13 +466,13 @@ const HomePage = () => {
                 body: JSON.stringify({ type })
             });
             
-            // Update user data
+            // Update user data with all returned stats
             setCurrentUser(prev => ({
                 ...prev,
                 ...result.newStats
             }));
             
-            // Refresh income details
+            // Refresh income details to show updated hourly income and bonuses
             const incomeData = await apiCall('/income/details');
             setIncomeDetails(incomeData);
             
