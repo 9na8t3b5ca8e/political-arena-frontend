@@ -56,12 +56,25 @@ const MiniProfile = ({ user }) => {
                 <div>
                     <p className="text-gray-400 text-sm">Action Points</p>
                     <p className="text-orange-400 font-semibold">{user.action_points}</p>
-                    <p className="text-xs text-gray-400">Resets to 50 daily</p>
+                    <div className="text-xs text-gray-400">
+                        <div>+5 per hour (base)</div>
+                        {incomeDetails?.ap_bonuses?.office_holder > 0 && (
+                            <div className="text-green-400">+{incomeDetails.ap_bonuses.office_holder} office bonus</div>
+                        )}
+                        {incomeDetails?.ap_bonuses?.party_leader > 0 && (
+                            <div className="text-blue-400">+{incomeDetails.ap_bonuses.party_leader} leadership bonus</div>
+                        )}
+                        {incomeDetails && (
+                            <div className="font-medium text-orange-300">
+                                Total: +{incomeDetails.hourly_action_points}/hour
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <div>
                     <p className="text-gray-400 text-sm">Political Capital</p>
                     <p className="text-purple-400 font-semibold">{user.political_capital}</p>
-                    <p className="text-xs text-gray-400">Use in PC daily with "Give Speech"</p>
+                    <p className="text-xs text-gray-400">Gain 10 PC with "Give Speech"</p>
                 </div>
                 <div>
                     <p className="text-gray-400 text-sm">State Name Recognition</p>
@@ -79,35 +92,38 @@ const MiniProfile = ({ user }) => {
 // Enhanced Fundraising component with new system
 const Fundraising = ({ onFundraise, user, loadingFundraise, incomeDetails }) => {
     // Calculate progressive costs based on hourly income level
-    const calculateProgressiveCost = (baseCost, incomeLevel = 2500) => {
-        const multiplier = Math.min(1 + ((incomeLevel / 2500 - 1) * 0.1 * 10), 3.0);
-        return Math.floor(baseCost * multiplier);
+    const calculateProgressiveCost = (baseCost, currentIncome = 2500) => {
+        // Progressive multiplier based on how much income player has compared to base
+        const incomeRatio = currentIncome / 2500;
+        const multiplier = Math.min(1 + Math.log(incomeRatio) * 0.5, 3.0);
+        return Math.max(Math.floor(baseCost * multiplier), baseCost);
     };
 
     const calculateProgressiveIncomeIncrease = (baseIncrease, currentIncome = 2500) => {
-        const incomeMultiplier = currentIncome / 2500;
-        const scaledIncrease = Math.floor(baseIncrease * (1 + Math.log(incomeMultiplier) * 0.1));
+        // Income increases scale with current income but diminishing returns
+        const incomeRatio = currentIncome / 2500;
+        const scaledIncrease = Math.floor(baseIncrease * (1 + Math.log(incomeRatio) * 0.2));
         return Math.max(scaledIncrease, Math.floor(baseIncrease * 0.5));
     };
 
     const currentHourlyIncome = incomeDetails?.hourly_income || 2500;
     
-    // Grassroots Fundraising
-    const grassrootsAPCost = calculateProgressiveCost(10, currentHourlyIncome / 2500 * 100);
-    const grassrootsFundsCost = calculateProgressiveCost(5000, currentHourlyIncome / 2500 * 100);
-    const grassrootsIncomeIncrease = calculateProgressiveIncomeIncrease(250, currentHourlyIncome);
+    // Grassroots Fundraising - Rebalanced for 5 AP/hour system
+    const grassrootsAPCost = calculateProgressiveCost(3, currentHourlyIncome);
+    const grassrootsFundsCost = calculateProgressiveCost(2000, currentHourlyIncome);
+    const grassrootsIncomeIncrease = calculateProgressiveIncomeIncrease(150, currentHourlyIncome);
     const canDoGrassroots = user.action_points >= grassrootsAPCost && user.campaign_funds >= grassrootsFundsCost;
 
-    // Large Donor Meeting
-    const largeAPCost = calculateProgressiveCost(15, currentHourlyIncome / 2500 * 100);
-    const largeFundsCost = calculateProgressiveCost(15000, currentHourlyIncome / 2500 * 100);
-    const largeIncomeIncrease = calculateProgressiveIncomeIncrease(750, currentHourlyIncome);
+    // Large Donor Meeting - Rebalanced for 5 AP/hour system  
+    const largeAPCost = calculateProgressiveCost(6, currentHourlyIncome);
+    const largeFundsCost = calculateProgressiveCost(8000, currentHourlyIncome);
+    const largeIncomeIncrease = calculateProgressiveIncomeIncrease(400, currentHourlyIncome);
     const canDoLarge = user.action_points >= largeAPCost && user.campaign_funds >= largeFundsCost && user.approval_rating >= 30;
 
-    // PAC Donations
-    const pacAPCost = calculateProgressiveCost(20, currentHourlyIncome / 2500 * 100);
-    const pacPCCost = calculateProgressiveCost(5, currentHourlyIncome / 2500 * 100);
-    const pacIncomeIncrease = calculateProgressiveIncomeIncrease(1500, currentHourlyIncome);
+    // PAC Donations - Rebalanced for 5 AP/hour system
+    const pacAPCost = calculateProgressiveCost(10, currentHourlyIncome);
+    const pacPCCost = calculateProgressiveCost(3, currentHourlyIncome);
+    const pacIncomeIncrease = calculateProgressiveIncomeIncrease(800, currentHourlyIncome);
     const canDoPAC = user.action_points >= pacAPCost && user.political_capital >= pacPCCost && user.approval_rating >= 20;
 
     const getButtonClass = (canDo) => {
@@ -117,11 +133,17 @@ const Fundraising = ({ onFundraise, user, loadingFundraise, incomeDetails }) => 
             : `${baseClass} bg-gray-400 text-gray-700 cursor-not-allowed opacity-60`;
     };
 
+    const getCostMultiplierDisplay = (currentCost, baseCost) => {
+        const multiplier = currentCost / baseCost;
+        if (multiplier <= 1.1) return "Base Cost";
+        return `+${Math.round((multiplier - 1) * 100)}% Cost`;
+    };
+
     return (
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
             <h3 className="text-2xl font-bold mb-4 text-gray-900">Campaign Fundraising</h3>
             <p className="text-sm text-gray-700 mb-4">
-                Build your hourly income to fund your political ambitions. Higher income levels increase costs but provide better returns.
+                Build your hourly income to fund your political ambitions. Costs increase as your income grows.
             </p>
             
             <div className="space-y-4">
@@ -129,7 +151,9 @@ const Fundraising = ({ onFundraise, user, loadingFundraise, incomeDetails }) => 
                 <div className="border-2 border-green-200 rounded-lg p-4 bg-green-50">
                     <div className="flex justify-between items-start mb-2">
                         <h4 className="font-semibold text-green-800 text-lg">Grassroots Fundraising</h4>
-                        <span className="text-xs bg-green-200 px-2 py-1 rounded-full text-green-800 font-medium">+2 PC, +1 Approval</span>
+                        <span className="text-xs bg-green-200 px-2 py-1 rounded-full text-green-800 font-medium">
+                            {getCostMultiplierDisplay(grassrootsAPCost, 3)}
+                        </span>
                     </div>
                     <p className="text-sm text-green-700 mb-3">
                         Meet with local supporters and community members. Builds political capital and approval.
@@ -137,6 +161,9 @@ const Fundraising = ({ onFundraise, user, loadingFundraise, incomeDetails }) => 
                     <div className="grid grid-cols-2 gap-2 text-xs mb-3 text-green-800">
                         <div className="font-medium">💰 Costs: {grassrootsAPCost} AP, ${grassrootsFundsCost.toLocaleString()}</div>
                         <div className="font-medium">📈 Income: +${grassrootsIncomeIncrease.toLocaleString()}/hour</div>
+                    </div>
+                    <div className="text-xs mb-3 text-green-700">
+                        Bonuses: +2 Political Capital, +1 Approval Rating
                     </div>
                     <button 
                         onClick={() => onFundraise('grassroots')} 
@@ -156,7 +183,9 @@ const Fundraising = ({ onFundraise, user, loadingFundraise, incomeDetails }) => 
                 <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
                     <div className="flex justify-between items-start mb-2">
                         <h4 className="font-semibold text-blue-800 text-lg">Large Donor Meeting</h4>
-                        <span className="text-xs bg-blue-200 px-2 py-1 rounded-full text-blue-800 font-medium">-2 Approval</span>
+                        <span className="text-xs bg-blue-200 px-2 py-1 rounded-full text-blue-800 font-medium">
+                            {getCostMultiplierDisplay(largeAPCost, 6)}
+                        </span>
                     </div>
                     <p className="text-sm text-blue-700 mb-3">
                         Meet with wealthy individual donors. Higher income but public perception may suffer.
@@ -164,6 +193,9 @@ const Fundraising = ({ onFundraise, user, loadingFundraise, incomeDetails }) => 
                     <div className="grid grid-cols-2 gap-2 text-xs mb-3 text-blue-800">
                         <div className="font-medium">💰 Costs: {largeAPCost} AP, ${largeFundsCost.toLocaleString()}</div>
                         <div className="font-medium">📈 Income: +${largeIncomeIncrease.toLocaleString()}/hour</div>
+                    </div>
+                    <div className="text-xs mb-3 text-blue-700">
+                        Penalty: -2 Approval Rating • Requires: 30% Approval
                     </div>
                     <button 
                         onClick={() => onFundraise('large_donor')} 
@@ -185,7 +217,9 @@ const Fundraising = ({ onFundraise, user, loadingFundraise, incomeDetails }) => 
                 <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
                     <div className="flex justify-between items-start mb-2">
                         <h4 className="font-semibold text-purple-800 text-lg">PAC Donation Solicitation</h4>
-                        <span className="text-xs bg-purple-200 px-2 py-1 rounded-full text-purple-800 font-medium">-5 Approval</span>
+                        <span className="text-xs bg-purple-200 px-2 py-1 rounded-full text-purple-800 font-medium">
+                            {getCostMultiplierDisplay(pacAPCost, 10)}
+                        </span>
                     </div>
                     <p className="text-sm text-purple-700 mb-3">
                         Solicit funds from Political Action Committees. Highest income but significant approval hit.
@@ -193,6 +227,9 @@ const Fundraising = ({ onFundraise, user, loadingFundraise, incomeDetails }) => 
                     <div className="grid grid-cols-2 gap-2 text-xs mb-3 text-purple-800">
                         <div className="font-medium">💰 Costs: {pacAPCost} AP, {pacPCCost} PC</div>
                         <div className="font-medium">📈 Income: +${pacIncomeIncrease.toLocaleString()}/hour</div>
+                    </div>
+                    <div className="text-xs mb-3 text-purple-700">
+                        Penalty: -5 Approval Rating • Requires: 20% Approval
                     </div>
                     <button 
                         onClick={() => onFundraise('pac')} 
@@ -216,7 +253,7 @@ const Fundraising = ({ onFundraise, user, loadingFundraise, incomeDetails }) => 
 
 // Give Speech component
 const GiveSpeech = ({ onGiveSpeech, user, loadingGiveSpeech }) => {
-    const canGiveSpeech = user.action_points >= 25;
+    const canGiveSpeech = user.action_points >= 8; // Rebalanced for 5 AP/hour system
     
     // Check if speech is on cooldown
     const isOnCooldown = user.last_speech_date && 
@@ -235,13 +272,13 @@ const GiveSpeech = ({ onGiveSpeech, user, loadingGiveSpeech }) => {
             <div className="border-2 border-yellow-200 rounded-lg p-4 bg-yellow-50">
                 <div className="flex justify-between items-start mb-2">
                     <h4 className="font-semibold text-yellow-800 text-lg">Give Speech</h4>
-                    <span className="text-xs bg-yellow-200 px-2 py-1 rounded-full text-yellow-800 font-medium">+10 PC</span>
+                    <span className="text-xs bg-yellow-200 px-2 py-1 rounded-full text-yellow-800 font-medium">Once per day</span>
                 </div>
                 <p className="text-sm text-yellow-700 mb-3">
                     Deliver a public speech to build your political capital. Can only be done once per day.
                 </p>
                 <div className="text-xs mb-3 text-yellow-800 font-medium">
-                    💰 Costs: 25 AP | 📈 Gain: +10 Political Capital
+                    💰 Costs: 8 AP | 📈 Gain: +10 Political Capital
                 </div>
                 <button 
                     onClick={onGiveSpeech} 
@@ -252,21 +289,21 @@ const GiveSpeech = ({ onGiveSpeech, user, loadingGiveSpeech }) => {
                      isOnCooldown ? 'Speech on Cooldown (24h)' : 'Give Speech'}
                 </button>
                 {!canGiveSpeech && !isOnCooldown && (
-                    <p className="text-xs text-red-700 mt-2 font-medium">Need 25 Action Points</p>
+                    <p className="text-xs text-red-700 mt-2 font-medium">Need 8 Action Points</p>
                 )}
             </div>
         </div>
     );
 };
 
-// Enhanced Campaign Actions component with progressive costs
+// Enhanced Campaign Actions component with rebalanced costs (Attack/Support moved to profiles)
 const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
     // Calculate progressive costs based on stats
     const calculateTVAdCost = () => {
-        const baseAPCost = 15;
-        const baseFundsCost = 25000;
+        const baseAPCost = 5; // Rebalanced for 5 AP/hour system
+        const baseFundsCost = 15000; // Reduced for better balance
         const nameRecognition = user.state_name_recognition || 0;
-        const multiplier = Math.min(1 + (nameRecognition * 0.1 * 0.1), 3.0);
+        const multiplier = Math.min(1 + (nameRecognition * 0.02), 2.5); // More gradual scaling
         return {
             ap: Math.floor(baseAPCost * multiplier),
             funds: Math.floor(baseFundsCost * multiplier)
@@ -274,21 +311,10 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
     };
 
     const calculateRallyCost = () => {
-        const baseAPCost = 12;
-        const baseFundsCost = 15000;
+        const baseAPCost = 4; // Rebalanced for 5 AP/hour system
+        const baseFundsCost = 8000; // Reduced for better balance
         const campaignStrength = user.campaign_strength || 0;
-        const multiplier = Math.min(1 + (campaignStrength * 0.1 * 0.1), 3.0);
-        return {
-            ap: Math.floor(baseAPCost * multiplier),
-            funds: Math.floor(baseFundsCost * multiplier)
-        };
-    };
-
-    const calculateAttackCost = () => {
-        const baseAPCost = 20;
-        const baseFundsCost = 30000;
-        const campaignStrength = user.campaign_strength || 0;
-        const multiplier = Math.min(1 + (campaignStrength * 0.1 * 0.1), 3.0);
+        const multiplier = Math.min(1 + (campaignStrength * 0.02), 2.5); // More gradual scaling
         return {
             ap: Math.floor(baseAPCost * multiplier),
             funds: Math.floor(baseFundsCost * multiplier)
@@ -297,12 +323,9 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
 
     const tvAdCost = calculateTVAdCost();
     const rallyCost = calculateRallyCost();
-    const attackCost = calculateAttackCost();
 
     const canRunTVAd = user.action_points >= tvAdCost.ap && user.campaign_funds >= tvAdCost.funds;
     const canOrganizeRally = user.action_points >= rallyCost.ap && user.campaign_funds >= rallyCost.funds;
-    const canAttack = user.action_points >= attackCost.ap && user.campaign_funds >= attackCost.funds;
-    const canSupport = user.action_points >= 16;
 
     const getButtonClass = (canDo) => {
         const baseClass = "w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200";
@@ -311,16 +334,17 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
             : `${baseClass} bg-gray-400 text-gray-700 cursor-not-allowed opacity-60`;
     };
 
-    const getStatMultiplier = (statValue) => {
-        const multiplier = Math.min(1 + (statValue * 0.1 * 0.1), 3.0);
-        return `${Math.round((multiplier - 1) * 100)}%`;
+    const getCostMultiplierDisplay = (currentCost, baseCost) => {
+        const multiplier = currentCost / baseCost;
+        if (multiplier <= 1.1) return "Base Cost";
+        return `+${Math.round((multiplier - 1) * 100)}% Cost`;
     };
 
     return (
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
             <h3 className="text-2xl font-bold mb-4 text-gray-900">Campaign Actions</h3>
             <p className="text-sm text-gray-700 mb-4">
-                Action costs increase as your stats improve. Higher stats = higher costs but maintain effectiveness.
+                Build your campaign presence. Costs increase as your stats improve.
             </p>
             
             <div className="space-y-4">
@@ -329,7 +353,7 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
                     <div className="flex justify-between items-start mb-2">
                         <h4 className="font-semibold text-blue-800 text-lg">Run TV Advertisement</h4>
                         <span className="text-xs bg-blue-200 px-2 py-1 rounded-full text-blue-800 font-medium">
-                            +{getStatMultiplier(user.state_name_recognition || 0)} Cost
+                            {getCostMultiplierDisplay(tvAdCost.ap, 5)}
                         </span>
                     </div>
                     <p className="text-sm text-blue-700 mb-3">
@@ -337,6 +361,9 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
                     </p>
                     <div className="text-xs mb-3 text-blue-800 font-medium">
                         💰 Costs: {tvAdCost.ap} AP, ${tvAdCost.funds.toLocaleString()}
+                    </div>
+                    <div className="text-xs mb-3 text-blue-700">
+                        Effect: +3-8 State Name Recognition (varies by stats)
                     </div>
                     <button 
                         onClick={() => onCampaignAction('tv_advertisement')} 
@@ -357,7 +384,7 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
                     <div className="flex justify-between items-start mb-2">
                         <h4 className="font-semibold text-green-800 text-lg">Organize Rally</h4>
                         <span className="text-xs bg-green-200 px-2 py-1 rounded-full text-green-800 font-medium">
-                            +{getStatMultiplier(user.campaign_strength || 0)} Cost
+                            {getCostMultiplierDisplay(rallyCost.ap, 4)}
                         </span>
                     </div>
                     <p className="text-sm text-green-700 mb-3">
@@ -365,6 +392,9 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
                     </p>
                     <div className="text-xs mb-3 text-green-800 font-medium">
                         💰 Costs: {rallyCost.ap} AP, ${rallyCost.funds.toLocaleString()}
+                    </div>
+                    <div className="text-xs mb-3 text-green-700">
+                        Effect: +2-5 Campaign Strength, +1-3 Approval (varies by stats)
                     </div>
                     <button 
                         onClick={() => onCampaignAction('organize_rally')} 
@@ -379,70 +409,24 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
                         </p>
                     )}
                 </div>
-
-                {/* Attack Opponent */}
-                <div className="border-2 border-red-200 rounded-lg p-4 bg-red-50">
-                    <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-semibold text-red-800 text-lg">Attack Opponent</h4>
-                        <span className="text-xs bg-red-200 px-2 py-1 rounded-full text-red-800 font-medium">
-                            +{getStatMultiplier(user.campaign_strength || 0)} Cost
-                        </span>
-                    </div>
-                    <p className="text-sm text-red-700 mb-3">
-                        Launch negative campaign against an active opponent. May backfire.
-                    </p>
-                    <div className="text-xs mb-3 text-red-800 font-medium">
-                        💰 Costs: {attackCost.ap} AP, ${attackCost.funds.toLocaleString()}
-                    </div>
-                    <button 
-                        onClick={() => onCampaignAction('attack_opponent')} 
-                        disabled={!canAttack || loadingCampaignAction}
-                        className={getButtonClass(canAttack)}
-                    >
-                        {loadingCampaignAction ? 'Processing...' : 'Launch Attack Campaign'}
-                    </button>
-                    {!canAttack && (
-                        <p className="text-xs text-red-700 mt-2 font-medium">
-                            {user.action_points < attackCost.ap ? `Need ${attackCost.ap} AP` : `Need $${attackCost.funds.toLocaleString()}`}
-                        </p>
-                    )}
-                </div>
-
-                {/* Support Candidate */}
-                <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
-                    <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-semibold text-purple-800 text-lg">Support Candidate</h4>
-                        <span className="text-xs bg-purple-200 px-2 py-1 rounded-full text-purple-800 font-medium">
-                            +2% Target Approval
-                        </span>
-                    </div>
-                    <p className="text-sm text-purple-700 mb-3">
-                        Endorse and support another candidate in an active campaign.
-                    </p>
-                    <div className="text-xs mb-3 text-purple-800 font-medium">
-                        💰 Costs: 16 AP
-                    </div>
-                    <button 
-                        onClick={() => onCampaignAction('support_candidate')} 
-                        disabled={!canSupport || loadingCampaignAction}
-                        className={getButtonClass(canSupport)}
-                    >
-                        {loadingCampaignAction ? 'Processing...' : 'Support Candidate'}
-                    </button>
-                    {!canSupport && (
-                        <p className="text-xs text-red-700 mt-2 font-medium">Need 16 AP</p>
-                    )}
-                </div>
             </div>
 
             {/* Progressive Cost Information */}
             <div className="mt-6 bg-gray-100 border border-gray-300 rounded-lg p-4">
-                <h4 className="font-semibold text-gray-900 mb-2">Progressive Cost System</h4>
+                <h4 className="font-semibold text-gray-900 mb-2">Cost Scaling System</h4>
                 <div className="text-xs text-gray-800 space-y-1">
                     <div>• TV Ad costs scale with State Name Recognition ({user.state_name_recognition || 0}%)</div>
-                    <div>• Rally/Attack costs scale with Campaign Strength ({user.campaign_strength || 0}%)</div>
-                    <div>• Higher stats = higher costs but maintain effectiveness</div>
+                    <div>• Rally costs scale with Campaign Strength ({user.campaign_strength || 0}%)</div>
+                    <div>• Higher stats = higher costs but better effectiveness</div>
                 </div>
+            </div>
+
+            {/* Player Interaction Actions */}
+            <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-2">Player Interactions</h4>
+                <p className="text-xs text-gray-700">
+                    Want to attack opponents or support allies? Visit their individual profile pages for campaign interaction options.
+                </p>
             </div>
         </div>
     );
