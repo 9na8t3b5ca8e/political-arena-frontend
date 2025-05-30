@@ -34,6 +34,11 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
     const [lastVoteSubmissionTime, setLastVoteSubmissionTime] = useState(null);
     const [voteSubmissionMessage, setVoteSubmissionMessage] = useState('');
 
+    // New state for party dues management
+    const [newDuesPercentage, setNewDuesPercentage] = useState(0);
+    const [isSettingDues, setIsSettingDues] = useState(false);
+    const [duesMessage, setDuesMessage] = useState('');
+
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
@@ -265,6 +270,33 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
         return Math.round((candidateVotes / totalPositionVotes) * 100);
     };
 
+    const handleSetPartyDues = async (e) => {
+        e.preventDefault();
+        setIsSettingDues(true);
+        setDuesMessage('');
+        try {
+            await apiCall(`/party/${partyId}/dues`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    partyId: parseInt(partyId),
+                    duesPercentage: parseInt(newDuesPercentage)
+                })
+            });
+            
+            setDuesMessage(`Party dues successfully set to ${newDuesPercentage}%`);
+            setNewDuesPercentage(0);
+            
+            // Refresh party details
+            const partyRes = await apiCall(`/party/${partyId}`);
+            setPartyDetails(partyRes);
+            
+        } catch (err) {
+            setDuesMessage(`Error: ${err.message || 'Failed to set party dues'}`);
+        } finally {
+            setIsSettingDues(false);
+        }
+    };
+
     if (loading) return <div className="p-4">Loading...</div>;
     if (error) return <div className="p-4 text-red-500 bg-red-100 border border-red-400 rounded">{error}</div>;
 
@@ -293,6 +325,11 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                     <div>
                         <p className="font-semibold">Treasury Balance:</p>
                         <p>{formatCurrency(partyDetails.treasury_balance)}</p>
+                    </div>
+                    <div>
+                        <p className="font-semibold">Party Dues:</p>
+                        <p>{partyDetails.dues_percentage || 0}% of hourly income</p>
+                        <p className="text-xs text-gray-600">Collected automatically from member income</p>
                     </div>
                     <div>
                         <p className="font-semibold">Chair:</p>
@@ -465,6 +502,60 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                     <h3 className="text-lg font-semibold mb-2 text-gray-700">Leadership Candidacy</h3>
                     <p className="text-gray-600">You are currently running for all available leadership positions in this election cycle.</p>
+                </div>
+            )}
+
+            {/* Party Dues Management - Only show for party chair */}
+            {isPartyLeader && currentUser && partyDetails && partyDetails.chair_user_id === currentUser.id && (
+                <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-xl font-semibold mb-4">Party Dues Management</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                        Set the percentage of hourly income that party members contribute to the party treasury. 
+                        Maximum 20%. Dues are collected automatically every hour.
+                    </p>
+                    
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <h4 className="font-semibold text-blue-800 mb-2">Current Settings</h4>
+                        <p className="text-blue-700">
+                            Party dues: <span className="font-semibold">{partyDetails.dues_percentage || 0}%</span> of member hourly income
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                            Example: A member earning $5,000/hour would contribute ${Math.floor(5000 * ((partyDetails.dues_percentage || 0) / 100)).toLocaleString()}/hour to the party treasury.
+                        </p>
+                    </div>
+
+                    {duesMessage && (
+                        <div className={`mb-4 p-3 rounded-lg ${duesMessage.startsWith('Error') ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
+                            <p className={duesMessage.startsWith('Error') ? 'text-red-800' : 'text-green-800'}>{duesMessage}</p>
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSetPartyDues} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">
+                                New Dues Percentage (0-20%)
+                            </label>
+                            <input
+                                type="number"
+                                min="0"
+                                max="20"
+                                value={newDuesPercentage}
+                                onChange={(e) => setNewDuesPercentage(e.target.value)}
+                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                                required
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Enter a percentage between 0 and 20. This will affect all party members' hourly income.
+                            </p>
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={isSettingDues}
+                            className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                            {isSettingDues ? 'Setting Dues...' : 'Set Party Dues'}
+                        </button>
+                    </form>
                 </div>
             )}
 
