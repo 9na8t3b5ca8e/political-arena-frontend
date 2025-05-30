@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom'; // Import Link
 import { apiCall } from '../api';
-import CampaignActions from '../components/CampaignActions';
 
 // Enhanced MiniProfile component with new economic information
 const MiniProfile = ({ user }) => {
