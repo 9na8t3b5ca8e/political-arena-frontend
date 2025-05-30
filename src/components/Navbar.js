@@ -1,13 +1,13 @@
 // frontend/src/components/Navbar.js
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon, Users, Settings, ChevronDown } from 'lucide-react';
+import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon, Users, Settings, ChevronDown, Flag } from 'lucide-react';
 import NotificationCenter from './NotificationCenter';
 
 export default function Navbar({ currentUser, logout, gameDate }) {
-  const [isPartiesDropdownOpen, setIsPartiesDropdownOpen] = useState(false);
+  const [isUSADropdownOpen, setIsUSADropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const partiesDropdownRef = useRef(null);
+  const usaDropdownRef = useRef(null);
   const profileDropdownRef = useRef(null);
 
   const navLinkStyles = ({ isActive }) => ({
@@ -19,8 +19,8 @@ export default function Navbar({ currentUser, logout, gameDate }) {
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (partiesDropdownRef.current && !partiesDropdownRef.current.contains(event.target)) {
-        setIsPartiesDropdownOpen(false);
+      if (usaDropdownRef.current && !usaDropdownRef.current.contains(event.target)) {
+        setIsUSADropdownOpen(false);
       }
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
         setIsProfileDropdownOpen(false);
@@ -33,14 +33,14 @@ export default function Navbar({ currentUser, logout, gameDate }) {
     };
   }, []);
 
-  const togglePartiesDropdown = () => {
-    setIsPartiesDropdownOpen(!isPartiesDropdownOpen);
-    setIsProfileDropdownOpen(false); // Close profile dropdown when opening parties
+  const toggleUSADropdown = () => {
+    setIsUSADropdownOpen(!isUSADropdownOpen);
+    setIsProfileDropdownOpen(false); // Close profile dropdown when opening USA
   };
 
   const toggleProfileDropdown = () => {
     setIsProfileDropdownOpen(!isProfileDropdownOpen);
-    setIsPartiesDropdownOpen(false); // Close parties dropdown when opening profile
+    setIsUSADropdownOpen(false); // Close USA dropdown when opening profile
   };
 
   return (
@@ -59,44 +59,52 @@ export default function Navbar({ currentUser, logout, gameDate }) {
                 <MapPin size={14} className="mr-1 hidden sm:inline-block"/> {currentUser.home_state}
                 </NavLink>
             )}
-            <NavLink to="/map" style={navLinkStyles} className="text-sm sm:text-base">USA Map</NavLink>
-            {currentUser && <NavLink to={`/profile/${currentUser.id}`} style={navLinkStyles} className="text-sm sm:text-base">Profile</NavLink>}
             {currentUser && (
-                <div className="relative" ref={partiesDropdownRef}>
+                <div className="relative" ref={usaDropdownRef}>
                     <button 
-                        onClick={togglePartiesDropdown}
+                        onClick={toggleUSADropdown}
                         style={navLinkStyles({ isActive: false })} 
-                        className={`flex items-center text-sm sm:text-base focus:outline-none ${isPartiesDropdownOpen ? 'text-gray-200' : 'text-gray-400 hover:text-gray-200'}`}
+                        className={`flex items-center text-sm sm:text-base focus:outline-none ${isUSADropdownOpen ? 'text-gray-200' : 'text-gray-400 hover:text-gray-200'}`}
                     >
-                        <Users size={14} className="mr-1 hidden sm:inline-block"/> Parties <span className={`ml-1 text-xs transition-transform duration-200 ${isPartiesDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+                        <Flag size={14} className="mr-1 hidden sm:inline-block"/> USA <span className={`ml-1 text-xs transition-transform duration-200 ${isUSADropdownOpen ? 'rotate-180' : ''}`}>▼</span>
                     </button>
-                    <div className={`absolute left-0 mt-2 w-48 bg-gray-700 rounded-md shadow-lg py-1 z-20 transition-all duration-200 ease-in-out ${isPartiesDropdownOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
+                    <div className={`absolute left-0 mt-2 w-48 bg-gray-700 rounded-md shadow-lg py-1 z-20 transition-all duration-200 ease-in-out ${isUSADropdownOpen ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible -translate-y-2'}`}>
                         <NavLink 
-                            to={currentUser.party_id ? `/party/${currentUser.party_id}` : '/party'} 
+                            to="/map" 
                             style={navLinkStyles} 
                             className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left"
-                            onClick={() => setIsPartiesDropdownOpen(false)}
+                            onClick={() => setIsUSADropdownOpen(false)}
                         >
-                            My Party
+                            National Map
                         </NavLink>
                         <NavLink 
                             to="/parties" 
                             style={navLinkStyles} 
                             className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left"
-                            onClick={() => setIsPartiesDropdownOpen(false)}
+                            onClick={() => setIsUSADropdownOpen(false)}
                         >
-                            View All Parties
+                            All Parties
                         </NavLink>
                         <NavLink 
                             to="/players" 
                             style={navLinkStyles} 
                             className="block px-4 py-2 text-sm hover:bg-gray-600 w-full text-left"
-                            onClick={() => setIsPartiesDropdownOpen(false)}
+                            onClick={() => setIsUSADropdownOpen(false)}
                         >
                             All Players
                         </NavLink>
                     </div>
                 </div>
+            )}
+            {currentUser && <NavLink to={`/profile/${currentUser.id}`} style={navLinkStyles} className="text-sm sm:text-base">Profile</NavLink>}
+            {currentUser && currentUser.party && (
+                <NavLink 
+                    to={currentUser.party_id ? `/party/${currentUser.party_id}` : '/party'} 
+                    style={navLinkStyles} 
+                    className="flex items-center text-sm sm:text-base"
+                >
+                    <Users size={14} className="mr-1 hidden sm:inline-block"/> {currentUser.party}
+                </NavLink>
             )}
             </nav>
         </div>
