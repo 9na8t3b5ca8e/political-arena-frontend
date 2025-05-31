@@ -322,6 +322,11 @@ export default function StatePage({ currentUser /* Removed setCurrentUser */ }) 
                       <h4 className="text-lg font-bold text-gray-100 mb-3 border-b border-gray-700 pb-2 flex items-center">
                           <Award size={20} className="mr-3 text-yellow-400"/>
                           {group.title}
+                          {group.elections[0]?.office === 'Senator' && group.elections[0]?.seat_class && (
+                            <span className="ml-2 text-base text-blue-300 font-normal">
+                              - Class {group.elections[0].seat_class} Senate Seat
+                            </span>
+                          )}
                       </h4>
                       <div className="space-y-4">
                         {group.elections.map(election => {
@@ -341,6 +346,11 @@ export default function StatePage({ currentUser /* Removed setCurrentUser */ }) 
                                   <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-2">
                                       <h5 className="text-md font-medium text-gray-200 capitalize">
                                         {isGeneralElection ? 'General Election' : `${election.party} ${election.type}`}
+                                        {election.office === 'Senator' && election.seat_class && (
+                                          <span className="ml-2 text-sm text-blue-300 font-normal">
+                                            (Class {election.seat_class} Senate Seat)
+                                          </span>
+                                        )}
                                       </h5>
                                       <span className="text-xs mt-1 sm:mt-0 px-2 py-1 bg-gray-600 text-gray-300 rounded-full">{election.status.replace(/_/g, ' ')}</span>
                                   </div>
