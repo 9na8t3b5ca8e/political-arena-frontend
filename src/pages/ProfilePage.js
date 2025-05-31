@@ -56,7 +56,7 @@ export default function ProfilePage() {
     const { userId: paramsUserId } = useParams();
     const navigate = useNavigate();
     const { user: authCurrentUser, updateUser, refreshUser } = useAuth();
-    const { addNotification } = useNotification();
+    const { showError, showSuccess } = useNotification();
     
     const [profileData, setProfileData] = useState(null);
     const [isOwnProfile, setIsOwnProfile] = useState(false);
@@ -436,36 +436,33 @@ export default function ProfilePage() {
 
     // Attack opponent handler - with additional safeguards
     const handleAttackOpponent = async () => {
-        // Multiple safeguards to prevent self-targeting
-        if (!profileData || !authCurrentUser) {
-            addNotification('User data not available', 'error');
+        if (!authCurrentUser) {
+            showError('User data not available');
             return;
         }
         
-        if (isOwnProfile || profileData.user_id === authCurrentUser.id || profileData.id === authCurrentUser.id) {
-            addNotification('You cannot attack yourself!', 'error');
+        if (profileData?.user_id === authCurrentUser.id) {
+            showError('You cannot attack yourself!');
             return;
         }
-        
+
         setLoadingAttack(true);
         try {
-            const response = await apiCall('/actions/campaign', {
+            const response = await apiCall('/actions/attack-opponent', {
                 method: 'POST',
                 body: JSON.stringify({
-                    action: 'attack_opponent',
                     targetUserId: profileData.user_id
                 })
             });
+
+            showSuccess(response.message || 'Attack successful!');
             
-            addNotification(response.message || 'Attack successful!', 'success');
             if (response.profile) {
                 updateUser(response.profile);
             }
-            // Refresh the target's profile to show updated stats
-            loadProfile();
         } catch (error) {
             console.error('Attack error:', error);
-            addNotification(error.message || 'Attack failed', 'error');
+            showError(error.message || 'Attack failed');
         } finally {
             setLoadingAttack(false);
         }
@@ -473,37 +470,33 @@ export default function ProfilePage() {
 
     // Support candidate handler - with additional safeguards
     const handleSupportCandidate = async () => {
-        // Multiple safeguards to prevent self-targeting
-        if (!profileData || !authCurrentUser) {
-            addNotification('User data not available', 'error');
+        if (!authCurrentUser) {
+            showError('User data not available');
             return;
         }
         
-        if (isOwnProfile || profileData.user_id === authCurrentUser.id || profileData.id === authCurrentUser.id) {
-            addNotification('You cannot support yourself!', 'error');
+        if (profileData?.user_id === authCurrentUser.id) {
+            showError('You cannot support yourself!');
             return;
         }
-        
+
         setLoadingSupport(true);
         try {
-            const response = await apiCall('/actions/campaign', {
+            const response = await apiCall('/actions/support-candidate', {
                 method: 'POST',
                 body: JSON.stringify({
-                    action: 'support_candidate',
-                    targetUserId: profileData.user_id,
-                    electionId: 'current_primary_election' // Simplified for now
+                    targetUserId: profileData.user_id
                 })
             });
+
+            showSuccess(response.message || 'Support successful!');
             
-            addNotification(response.message || 'Support successful!', 'success');
             if (response.profile) {
                 updateUser(response.profile);
             }
-            // Refresh the target's profile to show updated stats
-            loadProfile();
         } catch (error) {
             console.error('Support error:', error);
-            addNotification(error.message || 'Support failed', 'error');
+            showError(error.message || 'Support failed');
         } finally {
             setLoadingSupport(false);
         }

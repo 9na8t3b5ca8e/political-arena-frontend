@@ -11,7 +11,7 @@ const PartyMembers = ({ partyId }) => {
     const [loading, setLoading] = useState(true);
     const [totalMembers, setTotalMembers] = useState(0);
     const [partyName, setPartyName] = useState('');
-    const { addNotification } = useNotification();
+    const { showError } = useNotification();
 
     useEffect(() => {
         const fetchMembers = async () => {
@@ -22,7 +22,7 @@ const PartyMembers = ({ partyId }) => {
                 setTotalMembers(data.totalMembers);
                 setPartyName(data.party);
             } catch (err) {
-                addNotification(`Failed to load party members: ${err.message || 'Unknown error'}`, 'error');
+                showError(`Failed to load party members: ${err.message || 'Unknown error'}`);
                 console.error(err);
             } finally {
                 setLoading(false);

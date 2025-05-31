@@ -381,7 +381,7 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
 
 const HomePage = ({ currentUser: propCurrentUser }) => {
     const { user: authUser, loading: authLoading, updateUser } = useAuth();
-    const { addNotification } = useNotification();
+    const { addToast, showSuccess, showError } = useNotification();
     const [currentUser, setCurrentUser] = useState(propCurrentUser || authUser);
     const [incomeDetails, setIncomeDetails] = useState(null);
     const [loadingProfile, setLoadingProfile] = useState(true);
@@ -402,7 +402,7 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
                 setGameParameters(params);
             } catch (error) {
                 console.error("Failed to fetch game parameters:", error);
-                addNotification("Could not load game configuration. Some features might not work correctly.", "error");
+                showError("Could not load game configuration. Some features might not work correctly.");
                 // Set to empty object to prevent crashes, though features will be broken
                 setGameParameters({}); 
             } finally {
@@ -410,7 +410,7 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
             }
         };
         fetchGameParameters();
-    }, [addNotification]);
+    }, [showError]);
 
     useEffect(() => {
         const resolvedUser = propCurrentUser || authUser;
@@ -430,7 +430,7 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
             setIncomeDetails(details);
         } catch (error) {
             console.error("Failed to fetch income details:", error);
-            // addNotification("Could not load income details.", "error");
+            // showError("Could not load income details.");
         }
     };
 
@@ -438,7 +438,7 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
         if (currentUser && currentUser.id) {
             fetchIncomeDetails();
         }
-    }, [currentUser, gameParameters, addNotification]);
+    }, [currentUser, gameParameters]);
 
     const handleFundraise = async (type) => {
         setLoadingFundraise(true);
@@ -447,7 +447,7 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
                 method: 'POST', 
                 body: JSON.stringify({ type })
             });
-            addNotification(response.message || 'Fundraising action completed!', 'success');
+            showSuccess(response.message || 'Fundraising action completed!');
             if (response.profile) {
                 updateUser(response.profile); // Update user context/state
                 setCurrentUser(response.profile); // Update local state
@@ -455,7 +455,7 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
             fetchIncomeDetails(); // Refresh income details after successful fundraising
         } catch (err) {
             console.error('Fundraising error:', err);
-            addNotification(err.message || 'Fundraising failed', 'error');
+            showError(err.message || 'Fundraising failed');
         } finally {
             setLoadingFundraise(false);
         }
@@ -465,14 +465,14 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
         setLoadingGiveSpeech(true);
         try {
             const response = await apiCall('/actions/give-speech', { method: 'POST' });
-            addNotification(response.message || 'Speech given successfully!', 'success');
+            showSuccess(response.message || 'Speech given successfully!');
             if (response.profile) {
                 updateUser(response.profile);
                 setCurrentUser(response.profile);
             }
         } catch (err) {
             console.error('Give speech error:', err);
-            addNotification(err.message || 'Failed to give speech', 'error');
+            showError(err.message || 'Failed to give speech');
         } finally {
             setLoadingGiveSpeech(false);
         }
@@ -487,14 +487,14 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
                 method: 'POST', 
                 body: JSON.stringify(body)
             });
-            addNotification(response.message || `${actionType.replace('_',' ')} action successful!`, 'success');
+            showSuccess(response.message || `${actionType.replace('_',' ')} action successful!`);
             if (response.profile) {
                 updateUser(response.profile);
                 setCurrentUser(response.profile);
             }
         } catch (err) {
             console.error('Campaign action error:', err);
-            addNotification(err.message || `Campaign action ${actionType} failed`, 'error');
+            showError(err.message || `Campaign action ${actionType} failed`);
         } finally {
             setLoadingCampaignAction(false);
         }

@@ -8,7 +8,7 @@ import { useNotification } from '../contexts/NotificationContext'; // Import Not
 
 const PartyManagement = ({ partyId }) => { // Added currentUser prop
     const { user: currentUser } = useAuth(); // If using AuthContext
-    const { addNotification } = useNotification(); // Destructure addNotification
+    const { showError, showSuccess, showInfo } = useNotification(); // Destructure correct functions
     const [partyDetails, setPartyDetails] = useState(null);
     const [candidates, setCandidates] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -47,110 +47,38 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
     };
 
     useEffect(() => {
-        const fetchData = async () => {
+        const loadPartyData = async () => {
             try {
-                // Always fetch basic party details and candidates
-                const baseApiCalls = [
+                setLoading(true);
+                // Fetch party details and candidacies in parallel for efficiency
+                const [partyRes, candidaciesRes] = await Promise.all([
                     apiCall(`/party/${partyId}`),
-                    apiCall(`/party/${partyId}/candidates`),
-                    apiCall(`/party/${partyId}/votes/tallies`)
-                ];
-
-                // Check if this is the user's own party
-                const isOwnParty = currentUser && currentUser.party_id && 
-                    currentUser.party_id.toString() === partyId.toString();
-
-                // Only fetch voting data if viewing own party
-                if (isOwnParty) {
-                    baseApiCalls.push(apiCall(`/party/${partyId}/votes/current`));
-                }
-
-                const results = await Promise.all(baseApiCalls);
-                const [partyRes, candidatesRes, talliesRes, votesRes] = results;
-
+                    apiCall('/profile/my-candidacies')
+                ]);
+                
                 setPartyDetails(partyRes);
-                setCandidates(candidatesRes);
-                setVoteTallies(talliesRes);
-
-                // Only process voting data if it was fetched
-                if (isOwnParty && votesRes) {
-                    setCurrentUserVotes(votesRes);
-                    
-                    // Set initial vote selections based on current user votes
-                    setSelectedChairVote(votesRes.chair_vote_user_id ? votesRes.chair_vote_user_id.toString() : '');
-                    setSelectedViceChairVote(votesRes.vice_chair_vote_user_id ? votesRes.vice_chair_vote_user_id.toString() : '');
-                    setSelectedTreasurerVote(votesRes.treasurer_vote_user_id ? votesRes.treasurer_vote_user_id.toString() : '');
-
-                    // Check if user has already voted in this cycle
-                    const hasExistingVotes = votesRes.chair_vote_user_id || votesRes.vice_chair_vote_user_id || votesRes.treasurer_vote_user_id;
-                    setHasVotedThisCycle(!!hasExistingVotes);
-                } else {
-                    // Reset voting-related state when viewing other parties
-                    setCurrentUserVotes({});
-                    setSelectedChairVote('');
-                    setSelectedViceChairVote('');
-                    setSelectedTreasurerVote('');
-                    setHasVotedThisCycle(false);
-                }
-
-                // Check if current user is running for any positions (only for own party)
-                if (currentUser && isOwnParty) {
-                    const userCands = candidatesRes.filter(c => c.user_id === currentUser.id);
-                    setUserCandidacies(userCands);
-                } else {
-                    setUserCandidacies([]);
-                }
-
-                setLoading(false);
-
-                // Calculate and set election cycle date for display
-                const currentDate = new Date();
-                const dayOfWeek = currentDate.getDay();
-                const difference = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-                const electionCycleStartDate = new Date(currentDate);
-                electionCycleStartDate.setDate(currentDate.getDate() + difference);
-                electionCycleStartDate.setHours(0,0,0,0);
-                setElectionCycleDateDisplay(formatDateOnly(electionCycleStartDate));
-                // Calculate end of cycle (Sunday 11:59 PM)
-                const electionCycleEndDate = new Date(electionCycleStartDate);
-                electionCycleEndDate.setDate(electionCycleStartDate.getDate() + 6);
-                electionCycleEndDate.setHours(23,59,59,999);
-                setElectionCycleEndDisplay(formatLongDate(electionCycleEndDate));
-
-            } catch (err) {
-                console.error('Failed to load party data:', err); // Log the actual error
-                setError('Failed to load party data. See console for details.'); // Update message
-                addNotification('Failed to load party data: ' + (err.message || 'Unknown error'), 'error'); // Notify user
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-
-        // Set up periodic refreshing of vote data (every 30 seconds) - only for own party
-        const isOwnParty = currentUser && currentUser.party_id && 
-            currentUser.party_id.toString() === partyId.toString();
-        
-        let interval;
-        if (isOwnParty) {
-            interval = setInterval(async () => {
+                setCandidates(candidaciesRes);
+                
+                // Load current user's voting status
                 try {
-                    const [talliesRes] = await Promise.all([
-                        apiCall(`/party/${partyId}/votes/tallies`)
-                    ]);
-                    setVoteTallies(talliesRes);
-                } catch (err) {
-                    console.error('Error refreshing vote tallies:', err);
+                    const votesRes = await apiCall(`/party/${partyId}/my-votes`);
+                    setCurrentUserVotes(votesRes || {});
+                } catch (votesErr) {
+                    console.log('No previous votes found or error loading votes:', votesErr.message);
                 }
-            }, 30000);
-        }
-
-        return () => {
-            if (interval) {
-                clearInterval(interval);
+                
+            } catch (err) {
+                console.error('Party management load error:', err);
+                showError('Failed to load party data: ' + (err.message || 'Unknown error')); // Notify user
+            } finally {
+                setLoading(false);
             }
         };
-    }, [partyId, currentUser]);
+        
+        if (partyId) {
+            loadPartyData();
+        }
+    }, [partyId, showError]);
 
     const refreshData = async () => {
         try {
@@ -202,9 +130,9 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
     };
 
     const handleManualRefresh = async () => {
-        addNotification('Refreshing vote data...', 'info');
+        showInfo('Refreshing vote data...');
         await refreshData();
-        addNotification('Vote data refreshed!', 'success');
+        showInfo('Vote data refreshed!');
     };
 
     const handleFundingProposal = async (e) => {
@@ -221,7 +149,7 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
                     reason: fundingReason
                 })
             });
-            addNotification('Funding proposal submitted successfully!', 'success');
+            showSuccess('Funding proposal submitted successfully!');
             // Reset form
             setFundingAmount('');
             setFundingReason('');
@@ -233,7 +161,7 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
         } catch (err) {
             console.error('Failed to submit funding proposal:', err);
             setError(err.message || 'Failed to submit funding proposal');
-            addNotification('Error submitting funding proposal: ' + (err.message || 'Unknown error'), 'error');
+            showError('Error submitting funding proposal: ' + (err.message || 'Unknown error'));
         }
     };
 
@@ -252,10 +180,10 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
             // Refresh data
             await refreshData();
             setError(null);
-            addNotification('Successfully declared candidacy!', 'success');
+            showSuccess('Successfully declared candidacy!');
         } catch (err) {
             setError(err.message || 'Failed to submit candidacy');
-            addNotification('Failed to submit candidacy: ' + (err.message || 'Unknown error'), 'error');
+            showError('Failed to submit candidacy: ' + (err.message || 'Unknown error'));
         }
     };
 
@@ -271,10 +199,10 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
             // Refresh data
             await refreshData();
             setError(null);
-            addNotification('Successfully withdrew candidacy.', 'success');
+            showSuccess('Successfully withdrew candidacy.');
         } catch (err) {
             setError(err.message || 'Failed to withdraw candidacy');
-            addNotification('Failed to withdraw candidacy: ' + (err.message || 'Unknown error'), 'error');
+            showError('Failed to withdraw candidacy: ' + (err.message || 'Unknown error'));
         }
     };
 
@@ -295,7 +223,7 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
             // Update vote submission state
             setHasVotedThisCycle(true);
             setLastVoteSubmissionTime(new Date());
-            addNotification(hasVotedThisCycle ? 'Votes updated successfully!' : 'Votes submitted successfully!', 'success');
+            showInfo(hasVotedThisCycle ? 'Votes updated successfully!' : 'Votes submitted successfully!');
             
             // Refresh data to get updated votes and tallies
             await refreshData();
@@ -305,7 +233,7 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
             const partyRes = await apiCall(`/party/${partyId}`);
             setPartyDetails(partyRes);
         } catch (err) {
-            addNotification('Failed to submit vote: ' + (err.message || 'Unknown error'), 'error');
+            showError('Failed to submit vote: ' + (err.message || 'Unknown error'));
         } finally {
             setIsSubmittingVotes(false);
         }
@@ -344,7 +272,7 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
                 })
             });
             
-            addNotification(`Party dues successfully set to ${newDuesPercentage}%`, 'success');
+            showSuccess(`Party dues successfully set to ${newDuesPercentage}%`);
             setNewDuesPercentage(0);
             
             // Refresh party details
@@ -352,7 +280,7 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
             setPartyDetails(partyRes);
             
         } catch (err) {
-            addNotification(`Error setting party dues: ${err.message || 'Failed to set party dues'}`, 'error');
+            showError(`Error setting party dues: ${err.message || 'Failed to set party dues'}`);
         } finally {
             setIsSettingDues(false);
         }

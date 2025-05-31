@@ -9,22 +9,22 @@ import { useNotification } from '../contexts/NotificationContext'; // Add import
 const AllPartiesPage = () => {
     const [parties, setParties] = useState([]);
     const [loading, setLoading] = useState(true);
-    const { addNotification } = useNotification(); // Add this
+    const { showError } = useNotification(); // Add this
 
     useEffect(() => {
         const fetchParties = async () => {
             try {
                 const data = await apiCall('/party/all');
                 setParties(data);
-                setLoading(false);
             } catch (err) {
-                addNotification(`Failed to load parties data: ${err.message || 'Unknown error'}`, 'error');
-                console.error('Failed to load parties data:', err); // Optional: log the error
+                console.error('Error fetching parties:', err);
+                showError(`Failed to load parties data: ${err.message || 'Unknown error'}`);
+            } finally {
                 setLoading(false);
             }
         };
         fetchParties();
-    }, [addNotification]); // Add addNotification to dependency array
+    }, [showError]); // Add showError to dependency array
 
     if (loading) return <div className="p-6 text-center text-gray-400">Loading all parties...</div>;
 

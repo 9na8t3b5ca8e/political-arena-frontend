@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { apiCall } from '../api';
 import { formatPercentage } from '../utils/formatters';
@@ -10,11 +10,13 @@ import {
 import PositionBadge from '../components/PositionBadge';
 import { allStates } from '../state-data';
 import { useNotification } from '../contexts/NotificationContext';
+import PartySearch from '../components/PartySearch';
+import StateSearch from '../components/StateSearch';
 
 const AllPlayersPage = () => {
+    const { showError } = useNotification();
     const [players, setPlayers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const { addNotification } = useNotification();
     const [pagination, setPagination] = useState({});
     const [stats, setStats] = useState({});
     
@@ -50,11 +52,11 @@ const AllPlayersPage = () => {
 
     useEffect(() => {
         fetchPlayers();
-    }, [filters, addNotification]);
+    }, [filters, showError]);
 
     useEffect(() => {
         fetchStats();
-    }, [addNotification]);
+    }, [showError]);
 
     const fetchPlayers = async () => {
         try {
@@ -71,8 +73,9 @@ const AllPlayersPage = () => {
             setPlayers(data.players);
             setPagination(data.pagination);
         } catch (err) {
-            addNotification(`Failed to load players: ${err.message || 'Unknown error'}`, 'error');
+            showError(`Failed to load players: ${err.message || 'Unknown error'}`);
             console.error('Failed to load players:', err);
+            setPlayers([]);
         } finally {
             setLoading(false);
         }
@@ -83,7 +86,7 @@ const AllPlayersPage = () => {
             const data = await apiCall('/players/stats');
             setStats(data);
         } catch (err) {
-            addNotification(`Failed to load player stats: ${err.message || 'Unknown error'}`, 'error');
+            showError(`Failed to load player stats: ${err.message || 'Unknown error'}`);
             console.error('Failed to load player stats:', err);
         }
     };
