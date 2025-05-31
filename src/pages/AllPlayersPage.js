@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { apiCall } from '../api';
 import { formatPercentage } from '../utils/formatters';
@@ -10,8 +10,6 @@ import {
 import PositionBadge from '../components/PositionBadge';
 import { allStates } from '../state-data';
 import { useNotification } from '../contexts/NotificationContext';
-import PartySearch from '../components/PartySearch';
-import StateSearch from '../components/StateSearch';
 
 const AllPlayersPage = () => {
     const { showError } = useNotification();
