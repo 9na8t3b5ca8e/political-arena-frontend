@@ -72,7 +72,7 @@ function AppContent() {
                 <NotificationPreviewManager currentUser={currentUser} />
               </>
             ) : (
-              <Login />
+              <AuthRouter />
             )}
           </div>
         </div>
