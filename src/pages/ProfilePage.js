@@ -7,7 +7,7 @@ import {
     Edit3, Save, User, MapPin, DollarSign, TrendingUp, Briefcase, Shield, Award, Info, Mail,
     Copy,
     Check, AlertTriangle, Lock, Settings as SettingsIcon, UploadCloud,
-    Trash2, UserCircle2, Building2, Users, Calendar, Edit2, Eye
+    Trash2, UserCircle2, Building2, Users, Calendar, Edit2, Eye, Zap, Heart
 } from 'lucide-react';
 import SettingsModal from '../components/SettingsModal';
 import ActiveCampaignsCard from '../components/ActiveCampaignsCard';
@@ -18,6 +18,7 @@ import ReadOnlyField from '../components/ReadOnlyField';
 import PositionBadge from '../components/PositionBadge';
 import ElectoralHistory from '../components/ElectoralHistory';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 
 // Helper to get stance label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value, 10))?.label || 'Moderate';
@@ -55,6 +56,7 @@ export default function ProfilePage() {
     const { userId: paramsUserId } = useParams();
     const navigate = useNavigate();
     const { user: authCurrentUser, updateUser, refreshUser } = useAuth();
+    const { addNotification } = useNotification();
     
     const [profileData, setProfileData] = useState(null);
     const [isOwnProfile, setIsOwnProfile] = useState(false);
@@ -75,6 +77,11 @@ export default function ProfilePage() {
     const [profilePicturePreview, setProfilePicturePreview] = useState(null);
     const [isUploadingPicture, setIsUploadingPicture] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    
+    // New state for attack/support actions
+    const [loadingAttack, setLoadingAttack] = useState(false);
+    const [loadingSupport, setLoadingSupport] = useState(false);
+    const [gameParameters, setGameParameters] = useState(null);
 
     const clearMessages = () => {
         setError('');
@@ -380,11 +387,80 @@ export default function ProfilePage() {
     };
 
     const copyProfileLink = () => {
-        const profileUrl = `${window.location.origin}/profile/${profileData.user_id}`;
-        navigator.clipboard.writeText(profileUrl).then(() => {
-            setJustCopied(true);
-            setTimeout(() => setJustCopied(false), 2000);
-        });
+        const link = `${window.location.origin}/profile/${profileData.user_id}`;
+        navigator.clipboard.writeText(link);
+        setJustCopied(true);
+        setTimeout(() => setJustCopied(false), 2000);
+    };
+
+    // Fetch game parameters for attack/support actions
+    useEffect(() => {
+        const fetchGameParameters = async () => {
+            try {
+                const params = await apiCall('/game/parameters');
+                setGameParameters(params);
+            } catch (error) {
+                console.error("Failed to fetch game parameters:", error);
+            }
+        };
+        fetchGameParameters();
+    }, []);
+
+    // Attack opponent handler
+    const handleAttackOpponent = async () => {
+        if (!profileData || isOwnProfile) return;
+        
+        setLoadingAttack(true);
+        try {
+            const response = await apiCall('/actions/campaign', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'attack_opponent',
+                    targetUserId: profileData.user_id
+                })
+            });
+            
+            addNotification(response.message || 'Attack successful!', 'success');
+            if (response.profile) {
+                updateUser(response.profile);
+            }
+            // Refresh the target's profile to show updated stats
+            loadProfile();
+        } catch (error) {
+            console.error('Attack error:', error);
+            addNotification(error.message || 'Attack failed', 'error');
+        } finally {
+            setLoadingAttack(false);
+        }
+    };
+
+    // Support candidate handler
+    const handleSupportCandidate = async () => {
+        if (!profileData || isOwnProfile) return;
+        
+        setLoadingSupport(true);
+        try {
+            const response = await apiCall('/actions/campaign', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'support_candidate',
+                    targetUserId: profileData.user_id,
+                    electionId: 'current_primary_election' // Simplified for now
+                })
+            });
+            
+            addNotification(response.message || 'Support successful!', 'success');
+            if (response.profile) {
+                updateUser(response.profile);
+            }
+            // Refresh the target's profile to show updated stats
+            loadProfile();
+        } catch (error) {
+            console.error('Support error:', error);
+            addNotification(error.message || 'Support failed', 'error');
+        } finally {
+            setLoadingSupport(false);
+        }
     };
 
     if (loading) return <div className="text-center py-10 text-gray-400">Loading profile...</div>;
@@ -472,6 +548,29 @@ export default function ProfilePage() {
                                 <button onClick={() => { clearMessages(); setShowPasswordModal(true);}} className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-md text-sm flex items-center"><SettingsIcon size={16} className="mr-2"/> Settings</button>
                                 </>
                             )}
+                        </div>
+                    )}
+                    {/* Political Actions for other users' profiles */}
+                    {!isOwnProfile && authCurrentUser && gameParameters && (
+                        <div className="flex items-center gap-2 mt-3 sm:mt-0 sm:ml-auto shrink-0">
+                            <button 
+                                onClick={handleAttackOpponent}
+                                disabled={loadingAttack || !authCurrentUser.action_points || authCurrentUser.action_points < (gameParameters.actions?.campaign?.find(a => a.type === 'attack_opponent')?.base_ap_cost || 8)}
+                                className="bg-red-600 hover:bg-red-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md text-sm flex items-center transition-colors"
+                                title="Attack this opponent to decrease their approval rating"
+                            >
+                                <Zap size={16} className="mr-2"/> 
+                                {loadingAttack ? 'Attacking...' : 'Attack Opponent'}
+                            </button>
+                            <button 
+                                onClick={handleSupportCandidate}
+                                disabled={loadingSupport || !authCurrentUser.action_points || authCurrentUser.action_points < (gameParameters.actions?.campaign?.find(a => a.type === 'support_candidate')?.base_ap_cost || 6)}
+                                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed text-white px-4 py-2 rounded-md text-sm flex items-center transition-colors"
+                                title="Support this candidate to increase their campaign strength"
+                            >
+                                <Heart size={16} className="mr-2"/> 
+                                {loadingSupport ? 'Supporting...' : 'Support Candidate'}
+                            </button>
                         </div>
                     )}
                 </div>

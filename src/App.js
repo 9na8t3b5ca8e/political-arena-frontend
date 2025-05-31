@@ -36,25 +36,6 @@ const ageOptions = Array.from({ length: (120 - 18) + 1 }, (_, i) => 18 + i); // 
 function AppContent() {
   const { user: currentUser, loading, logout } = useAuth();
   const { showError } = useNotification();
-  const [gameDate, setGameDate] = useState(null);
-
-  useEffect(() => {
-    if (currentUser) {
-      const fetchGameDate = async () => {
-        try {
-          const dateData = await apiCall('/game/date');
-          setGameDate(dateData);
-        } catch (error) {
-          console.error("Failed to fetch game date:", error);
-        }
-      };
-      fetchGameDate();
-      const intervalId = setInterval(fetchGameDate, 60000);
-      return () => clearInterval(intervalId);
-    } else {
-      setGameDate(null);
-    }
-  }, [currentUser]);
 
   if (loading) {
     return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading Application...</div>;
@@ -67,7 +48,7 @@ function AppContent() {
           <div className="max-w-7xl mx-auto">
             {currentUser ? (
               <>
-                <Navbar currentUser={currentUser} logout={logout} gameDate={gameDate} /> 
+                <Navbar currentUser={currentUser} logout={logout} /> 
                 <main className="mt-6">
                   <Routes>
                     <Route path="/" element={<HomePage currentUser={currentUser} />} />
@@ -91,17 +72,16 @@ function AppContent() {
                 <NotificationPreviewManager currentUser={currentUser} />
               </>
             ) : (
-              <>
-                <Routes>
-                  <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-                  <Route path="/terms-of-service" element={<TermsOfServicePage />} />
-                  <Route path="*" element={<AuthRouter />} />
-                </Routes>
-              </>
+              <Login />
             )}
           </div>
         </div>
+        
+        {/* Footer */}
         <Footer />
+        
+        {/* Policy Agreement Modal */}
+        <PolicyAgreementModal />
       </div>
     </BrowserRouter>
   );

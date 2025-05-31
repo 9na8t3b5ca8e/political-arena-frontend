@@ -1,12 +1,13 @@
 // frontend/src/components/Navbar.js
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, CalendarDays, User as UserIcon, Users, Settings, ChevronDown, Flag, Shield } from 'lucide-react';
+import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, Clock, User as UserIcon, Users, Settings, ChevronDown, Flag, Shield } from 'lucide-react';
 import NotificationCenter from './NotificationCenter';
 
-export default function Navbar({ currentUser, logout, gameDate }) {
+export default function Navbar({ currentUser, logout }) {
   const [isUSADropdownOpen, setIsUSADropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const usaDropdownRef = useRef(null);
   const profileDropdownRef = useRef(null);
 
@@ -19,6 +20,31 @@ export default function Navbar({ currentUser, logout, gameDate }) {
   // Check if user is in party leadership
   const isPartyLeader = currentUser && currentUser.party_leadership_role && 
     ['chair', 'vice_chair', 'treasurer'].includes(currentUser.party_leadership_role);
+
+  // Update current time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format the current time as requested: [1/1/2025] [12:38 PM XX]
+  const formatServerTime = (date) => {
+    const dateStr = date.toLocaleDateString('en-US', {
+      month: 'numeric',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZoneName: 'short'
+    });
+    return `[${dateStr}] [${timeStr}]`;
+  };
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -129,11 +155,9 @@ export default function Navbar({ currentUser, logout, gameDate }) {
         <div className="flex flex-col items-center sm:items-end w-full sm:w-auto">
             {currentUser && (
             <>
-                {gameDate && gameDate.year && (
-                <div className="text-xs text-amber-300 mb-1.5 sm:mb-1 flex items-center whitespace-nowrap" title="Current Game Year">
-                    <CalendarDays size={14} className="inline-block mr-1" /> GAME YEAR: {gameDate.year}
+                <div className="text-xs text-amber-300 mb-1.5 sm:mb-1 flex items-center whitespace-nowrap" title="Current Server Time">
+                    <Clock size={14} className="inline-block mr-1" /> SERVER TIME: {formatServerTime(currentTime)}
                 </div>
-                )}
                 <div className="flex items-center space-x-2 sm:space-x-3">
                 {/* Notification Center */}
                 <NotificationCenter currentUser={currentUser} />

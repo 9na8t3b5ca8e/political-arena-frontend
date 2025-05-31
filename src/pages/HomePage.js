@@ -285,33 +285,24 @@ const GiveSpeech = ({ onGiveSpeech, user, loadingGiveSpeech }) => {
     );
 };
 
-// CampaignActions component using gameParameters
-const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction, currentElection }) => {
+// CampaignActions component - filtered to only show non-targeted actions
+const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction }) => {
     const gameParameters = useGameParameters();
     const campaignActionConfigs = gameParameters?.actions?.campaign;
-    const [targetUserIdAttack, setTargetUserIdAttack] = useState('');
-    const [targetUserIdSupport, setTargetUserIdSupport] = useState('');
-    // We would also need a list of potential targets (other players/candidates)
-    // This would likely come from another API call or be passed down
 
     // Scaled cost calculation (remains on frontend for now, using backend factor)
     const calculateScaledCost = (baseCost, statValue, scalingFactor) => {
-        // Example: Cost = BaseCost + BaseCost * (StatValue / 100) * ScalingFactor
-        // This needs to match or be compatible with any backend expectation if actions are validated with scaled costs.
-        // For now, a simple scaling.
-        // const scaledPortion = baseCost * (statValue / 100) * scalingFactor;
-        // return Math.floor(baseCost + scaledPortion);
-        // The original actionController used calculateProgressiveCost, which had a different structure.
-        // The constants file has stat_scaling_factor. Let's use that as a simple multiplier for now.
-        // This part DEFINITELY needs to be consistent with how backend MIGHT calculate/validate costs if it does.
-        // If backend only cares about base_cost, then this is for UI display only.
-        // Assuming stat_scaling_factor is a direct multiplier on the base cost for simplicity now.
         return Math.floor(baseCost * (1 + scalingFactor * (statValue / 100))); // statValue could be e.g. user.campaign_strength or user.approval_rating
     };
 
     if (!campaignActionConfigs) {
         return <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200"><p>Loading campaign actions...</p></div>;
     }
+
+    // Filter out attack_opponent and support_candidate - these belong on individual profile pages
+    const homePageActions = campaignActionConfigs.filter(config => 
+        config.type !== 'attack_opponent' && config.type !== 'support_candidate'
+    );
     
     const getButtonClass = (canDo) => {
         const baseClass = "w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200";
@@ -332,9 +323,8 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction, curren
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
             <h3 className="text-2xl font-bold mb-4 text-gray-900">Campaign Operations</h3>
             <div className="space-y-4">
-                {campaignActionConfigs.map(config => {
+                {homePageActions.map(config => {
                     // Using user's campaign_strength as a generic stat for scaling for this example
-                    // Specific actions might scale off different stats (e.g. opponent's approval for attack effectiveness)
                     const relevantStatForScaling = user.campaign_strength || 50; // Default to 50 if not available
 
                     const currentAPCost = calculateScaledCost(config.base_ap_cost, relevantStatForScaling, config.stat_scaling_factor || 0);
@@ -350,20 +340,12 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction, curren
                         effectDescription = `+${config.effects.snr_increase}% State Name Recognition`;
                     } else if (config.type === 'organize_rally' && config.effects?.cs_increase) {
                         effectDescription = `+${config.effects.cs_increase}% Campaign Strength, +${config.effects.approval_increase}% Approval`;
-                    } else if (config.type === 'attack_opponent' && config.effects?.approval_decrease_target) {
-                        effectDescription = `-${config.effects.approval_decrease_target}% Target Opponent Approval`;
-                        if (!targetUserIdAttack) canDoAction = false; // Disable if no target
-                    } else if (config.type === 'support_candidate' && config.effects?.cs_increase_target) {
-                        effectDescription = `+${config.effects.cs_increase_target}% Target Candidate Strength`;
-                        if (!targetUserIdSupport || !currentElection) canDoAction = false; // Disable if no target/election
                     }
                     
                     // Determine card style based on type
                     let cardStyle = { borderColor: 'gray-300', bgColor: 'bg-gray-100', titleColor: 'text-gray-900', textColor: 'text-gray-700', accentColor: 'gray-300' };
                     if(config.type === 'tv_advertisement') cardStyle = { borderColor: 'teal-200', bgColor: 'bg-teal-50', titleColor: 'text-teal-800', textColor: 'text-teal-700', accentColor: 'teal-200' };
                     if(config.type === 'organize_rally') cardStyle = { borderColor: 'orange-200', bgColor: 'bg-orange-50', titleColor: 'text-orange-800', textColor: 'text-orange-700', accentColor: 'orange-200' };
-                    if(config.type === 'attack_opponent') cardStyle = { borderColor: 'red-200', bgColor: 'bg-red-50', titleColor: 'text-red-800', textColor: 'text-red-700', accentColor: 'red-200' };
-                    if(config.type === 'support_candidate') cardStyle = { borderColor: 'indigo-200', bgColor: 'bg-indigo-50', titleColor: 'text-indigo-800', textColor: 'text-indigo-700', accentColor: 'indigo-200' };
 
                     return (
                         <div key={config.type} className={`border-2 border-${cardStyle.borderColor} rounded-lg p-4 ${cardStyle.bgColor}`}>
@@ -379,43 +361,8 @@ const CampaignActions = ({ onCampaignAction, user, loadingCampaignAction, curren
                                 <div className="font-medium">📊 Effect: {effectDescription}</div>
                             </div>
 
-                            {/* Inputs for target selection - basic example */}
-                            {config.type === 'attack_opponent' && (
-                                <div className="mb-2">
-                                    <input 
-                                        type="text" 
-                                        placeholder="Target User ID to Attack"
-                                        className="w-full p-2 border rounded text-sm"
-                                        value={targetUserIdAttack}
-                                        onChange={(e) => setTargetUserIdAttack(e.target.value)}
-                                    />
-                                </div>
-                            )}
-                            {config.type === 'support_candidate' && (
-                                <div className="mb-2">
-                                    <input 
-                                        type="text" 
-                                        placeholder="Candidate User ID to Support"
-                                        className="w-full p-2 border rounded text-sm mb-1"
-                                        value={targetUserIdSupport}
-                                        onChange={(e) => setTargetUserIdSupport(e.target.value)}
-                                    />
-                                    {/* TODO: Add Election ID selector if multiple active elections for support */}
-                                    {!currentElection && <p className='text-xs text-red-500'>No active election for support.</p>}
-                                </div>
-                            )}
-
                             <button 
-                                onClick={() => {
-                                    let params = {};
-                                    if (config.type === 'attack_opponent') params.targetUserId = targetUserIdAttack;
-                                    if (config.type === 'support_candidate') {
-                                        params.targetUserId = targetUserIdSupport;
-                                        if(currentElection) params.electionId = currentElection.id; 
-                                        // If electionId is not available, the button might be disabled or logic handled by onCampaignAction
-                                    }
-                                    onCampaignAction(config.type, params);
-                                }}
+                                onClick={() => onCampaignAction(config.type, {})}
                                 disabled={!canDoAction || loadingCampaignAction}
                                 className={getButtonClass(canDoAction)}
                             >
@@ -441,7 +388,6 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
     const [loadingFundraise, setLoadingFundraise] = useState(false);
     const [loadingGiveSpeech, setLoadingGiveSpeech] = useState(false);
     const [loadingCampaignAction, setLoadingCampaignAction] = useState(false);
-    const [currentElection, setCurrentElection] = useState(null); // For support_candidate action
 
     // State for game parameters
     const [gameParameters, setGameParameters] = useState(null);
@@ -491,51 +437,6 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
     useEffect(() => {
         if (currentUser && currentUser.id) {
             fetchIncomeDetails();
-            // Fetch active election for the user's state (simplified)
-            // This would ideally be more specific based on what elections the user can interact with
-            const fetchActiveElection = async () => {
-                try {
-                    // Assuming an endpoint that gives the primary active election for user's state
-                    // This is a placeholder for actual election fetching logic
-                    // const elections = await apiCall(`/elections/active?state=${currentUser.home_state}&type=primary`); 
-                    // For now, let's simulate or assume one is passed or globally available if needed by CampaignActions
-                    // If gameParameters contains current election cycle details, we might use that.
-                    if (gameParameters && gameParameters.election_cycle) {
-                        // This is a very simplified placeholder
-                        // A real app would have a proper way to identify relevant elections
-                        const cycle = gameParameters.election_cycle;
-                        // Let's assume if we are past primary campaign end, it's general, otherwise primary.
-                        // This is not robust.
-                        const now = new Date();
-                        let relevantElectionPhase = 'filing';
-                        let electionObjectForSupport = null;
-
-                        if (cycle && now < new Date(cycle.filing_period_ends)) {
-                            relevantElectionPhase = 'Filing Period';
-                        } else if (cycle && now < new Date(cycle.primary_campaign_ends)) {
-                            relevantElectionPhase = 'Primary Campaign';
-                            electionObjectForSupport = { id: 'current_primary_election', name: `Current Primary Election (${currentUser.home_state})` };
-                        } else if (cycle && now < new Date(cycle.general_campaign_starts)) {
-                            relevantElectionPhase = 'Between Primary and General';
-                        } else if (cycle && now < new Date(cycle.general_campaign_ends)) {
-                            relevantElectionPhase = 'General Campaign';
-                            electionObjectForSupport = { id: 'current_general_election', name: `Current General Election (${currentUser.home_state})` };
-                        } else {
-                            relevantElectionPhase = 'Post-Election / Pre-Filing';
-                        }
-                        // console.log("Current Election Phase for UI: ", relevantElectionPhase);
-                        // For 'support_candidate', we need an electionId. We can mock one based on phase.
-                        setCurrentElection(electionObjectForSupport);
-                    }
-
-                } catch (error) {
-                    console.error("Failed to fetch active election for support actions:", error);
-                }
-            };
-
-            if (gameParameters) { // Ensure gameParameters are loaded before trying to use them for elections
-                fetchActiveElection();
-            }
         }
     }, [currentUser, gameParameters, addNotification]);
 
@@ -581,22 +482,6 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
         setLoadingCampaignAction(true);
         try {
             const body = { action: actionType, ...params };
-            // Ensure electionId is only sent if it's actually set for support_candidate
-            if (actionType === 'support_candidate') {
-                if (!params.electionId && currentElection && currentElection.id) {
-                    body.electionId = currentElection.id; // Use fetched/derived currentElection
-                }
-                if (!body.targetUserId || !body.electionId) {
-                    addNotification('Target candidate and active election are required for support.', 'warning');
-                    setLoadingCampaignAction(false);
-                    return;
-                }
-            }
-            if (actionType === 'attack_opponent' && !params.targetUserId) {
-                addNotification('Target user is required for attack.', 'warning');
-                setLoadingCampaignAction(false);
-                return;
-            }
 
             const response = await apiCall('/actions/campaign', { 
                 method: 'POST', 
@@ -604,12 +489,9 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
             });
             addNotification(response.message || `${actionType.replace('_',' ')} action successful!`, 'success');
             if (response.profile) {
-                updateUser(response.profile); // Attacker's profile is updated
+                updateUser(response.profile);
                 setCurrentUser(response.profile);
             }
-            // Note: For attack/support, the target's profile/status also changes on backend.
-            // The current UI doesn't immediately reflect changes to *other* users shown on the page,
-            // that would require more complex state management or a push notification system.
         } catch (err) {
             console.error('Campaign action error:', err);
             addNotification(err.message || `Campaign action ${actionType} failed`, 'error');
@@ -641,7 +523,6 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
         );
     }
 
-    // Pass currentElection to CampaignActions if needed for 'support_candidate'
     return (
         <GameParametersContext.Provider value={gameParameters}>
             <div className="min-h-screen bg-gray-900 text-gray-100 p-4 md:p-8">
@@ -655,11 +536,10 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
                             onCampaignAction={handleCampaignAction} 
                             user={currentUser} 
                             loadingCampaignAction={loadingCampaignAction} 
-                            currentElection={currentElection} // Pass current election
                         />
                     </div>
 
-                    {/* Other sections like NewsFeed, UpcomingElections can also use gameParameters.election_cycle */}
+                    {/* Election Dashboard with real dates */}
                     <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
                         <h2 className="text-2xl font-bold text-white mb-4">Election Dashboard</h2>
                         {gameParameters?.election_cycle ? (
