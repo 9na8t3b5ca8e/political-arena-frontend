@@ -1,7 +1,8 @@
 // frontend/src/components/CandidateFinanceWidget.js
 import React, { useState, useEffect, useCallback } from 'react';
-import { getFinanceLedger, spendCampaignFunds, donateToCandidate } from '../api';
+import { getFinanceLedger, spendCampaignFunds, donateToCandidate, apiCall } from '../api';
 import { DollarSign, Send, Landmark, X, Loader, AlertTriangle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 // Small Modal Component for Forms
 const Modal = ({ children, onClose }) => (
@@ -16,7 +17,7 @@ const Modal = ({ children, onClose }) => (
 );
 
 // Spend Funds Form
-const SpendForm = ({ candidate, currentUser, setCurrentUser, onClose, setSuccess, setError }) => {
+const SpendForm = ({ candidate, currentUser, updateUser, onClose, setSuccess, setError }) => {
     const [amount, setAmount] = useState('');
     const [purpose, setPurpose] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -27,14 +28,6 @@ const SpendForm = ({ candidate, currentUser, setCurrentUser, onClose, setSuccess
         setSuccess('');
         setIsProcessing(true);
         try {
-            // --- DEBUG LOGS ADDED HERE ---
-            console.log("SpendForm (Frontend) - Attempting to spend funds.");
-            console.log("SpendForm (Frontend) - Candidate object:", JSON.stringify(candidate, null, 2));
-            console.log("SpendForm (Frontend) - candidate.election_candidate_id to be sent:", candidate?.election_candidate_id);
-            console.log("SpendForm (Frontend) - candidate.user_id (owner of the candidacy):", candidate?.user_id);
-            console.log("SpendForm (Frontend) - currentUser.id (logged-in user):", currentUser?.id);
-            // --- END OF DEBUG LOGS ---
-
             if (!candidate?.election_candidate_id) {
                 throw new Error("Frontend Error: election_candidate_id is missing from candidate object before API call.");
             }
@@ -44,7 +37,7 @@ const SpendForm = ({ candidate, currentUser, setCurrentUser, onClose, setSuccess
                 amount: parseFloat(amount),
                 purpose: purpose,
             });
-            setCurrentUser(prev => ({ ...prev, campaign_funds: res.newCampaignFunds }));
+            updateUser({ campaign_funds: res.newCampaignFunds });
             setSuccess('Expenditure recorded successfully!');
             onClose();
         } catch (err) {
@@ -78,7 +71,7 @@ const SpendForm = ({ candidate, currentUser, setCurrentUser, onClose, setSuccess
 };
 
 // Donate Form (No changes needed for this specific bug, but kept for completeness of the file)
-const DonateForm = ({ candidate, currentUser, setCurrentUser, onClose, setSuccess, setError }) => {
+const DonateForm = ({ candidate, currentUser, updateUser, onClose, setSuccess, setError }) => {
     const [amount, setAmount] = useState('');
     const [source, setSource] = useState('individual');
     const [isProcessing, setIsProcessing] = useState(false);
@@ -96,9 +89,8 @@ const DonateForm = ({ candidate, currentUser, setCurrentUser, onClose, setSucces
             });
             // If donating to oneself, update campaign funds in currentUser
             if (candidate.user_id === currentUser.id) {
-                 // This logic might need refinement if donateToCandidate already returns the donor's new stats
                 const updatedProfile = await apiCall('/auth/profile'); // Re-fetch profile to get latest funds
-                setCurrentUser(updatedProfile);
+                updateUser(updatedProfile);
             }
             setSuccess(`Successfully donated $${amount} to ${candidate.first_name} ${candidate.last_name}.`);
             onClose();
@@ -135,7 +127,8 @@ const DonateForm = ({ candidate, currentUser, setCurrentUser, onClose, setSucces
     );
 }
 
-export default function CandidateFinanceWidget({ candidate, currentUser, setCurrentUser, onClose }) {
+export default function CandidateFinanceWidget({ candidate, currentUser, onClose }) {
+    const { updateUser } = useAuth();
     const [ledger, setLedger] = useState({ contributions: [], expenditures: [] });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -249,8 +242,8 @@ export default function CandidateFinanceWidget({ candidate, currentUser, setCurr
             </div>
 
             {/* Modals */}
-            {showSpendModal && isOwner && <Modal onClose={() => setShowSpendModal(false)}><SpendForm candidate={candidate} currentUser={currentUser} setCurrentUser={setCurrentUser} setSuccess={setSuccess} setError={setError} onClose={() => {setShowSpendModal(false); fetchLedger(); /* Refresh ledger after spend */}} /></Modal>}
-            {showDonateModal && <Modal onClose={() => setShowDonateModal(false)}><DonateForm candidate={candidate} currentUser={currentUser} setCurrentUser={setCurrentUser} setSuccess={setSuccess} setError={setError} onClose={() => {setShowDonateModal(false); fetchLedger(); /* Refresh ledger after donation */}} /></Modal>}
+            {showSpendModal && isOwner && <Modal onClose={() => setShowSpendModal(false)}><SpendForm candidate={candidate} currentUser={currentUser} updateUser={updateUser} onClose={() => {setShowSpendModal(false); fetchLedger(); /* Refresh ledger after spend */}} setSuccess={setSuccess} setError={setError} /></Modal>}
+            {showDonateModal && <Modal onClose={() => setShowDonateModal(false)}><DonateForm candidate={candidate} currentUser={currentUser} updateUser={updateUser} onClose={() => {setShowDonateModal(false); fetchLedger(); /* Refresh ledger after donation */}} setSuccess={setSuccess} setError={setError} /></Modal>}
         </div>
     );
 }

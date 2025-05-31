@@ -25,7 +25,7 @@ const Toast = ({
     }, [show, duration, onClose]);
 
     const getToastStyles = () => {
-        const baseStyles = "fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg border max-w-md transform transition-all duration-300 ease-in-out";
+        const baseStyles = "p-4 rounded-lg shadow-lg border max-w-md transform transition-all duration-300 ease-in-out";
         
         if (!show) {
             return `${baseStyles} translate-x-full opacity-0 pointer-events-none`;

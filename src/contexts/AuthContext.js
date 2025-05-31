@@ -20,11 +20,13 @@ export const AuthProvider = ({ children }) => {
         setUser(prev => {
             if (!prev) return prev;
             const updated = { ...prev, ...updates };
-            console.log('AuthContext: User updated', { 
-                before: prev.campaign_funds, 
-                after: updated.campaign_funds,
-                hourlyIncome: updated.hourly_income 
-            });
+            if (process.env.NODE_ENV === 'development') {
+                console.log('AuthContext: User updated', { 
+                    before: prev.campaign_funds, 
+                    after: updated.campaign_funds,
+                    hourlyIncome: updated.hourly_income 
+                });
+            }
             return updated;
         });
     };
@@ -34,11 +36,27 @@ export const AuthProvider = ({ children }) => {
         try {
             const userData = await apiCall('/auth/profile');
             setUser(userData);
-            console.log('AuthContext: User refreshed from server', userData);
+            if (process.env.NODE_ENV === 'development') {
+                console.log('AuthContext: User refreshed from server', userData);
+            }
             return userData;
         } catch (error) {
             console.error('AuthContext: Failed to refresh user:', error);
             return null;
+        }
+    };
+
+    const loginUser = async (token) => {
+        localStorage.setItem('authToken', token);
+        try {
+            const userData = await apiCall('/auth/profile'); // Fetch profile after setting token
+            setUser(userData);
+            return userData; // Return user data so AuthScreen can proceed
+        } catch (error) {
+            console.error('AuthContext: Login failed to fetch profile:', error);
+            localStorage.removeItem('authToken'); // Clean up token if profile fetch fails
+            setUser(null);
+            throw error; // Re-throw for AuthScreen to handle UI
         }
     };
 
@@ -72,6 +90,7 @@ export const AuthProvider = ({ children }) => {
             updateUser, 
             refreshUser, 
             loading, 
+            loginUser,
             logout 
         }}>
             {children}

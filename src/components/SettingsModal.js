@@ -28,11 +28,20 @@ export default function SettingsModal({ isOpen, onClose, onSuccess, onError, use
 
     useEffect(() => {
         if (isOpen) {
-            // Load current timezone setting
-            const savedTimezone = localStorage.getItem('userTimezone') || 'Auto-detect';
-            setTimezone(savedTimezone);
+            // Load timezone: prioritize from user object, then localStorage, then default
+            const userTimezone = currentUser?.preferences?.timezone;
+            const savedTimezone = localStorage.getItem('userTimezone');
+            setTimezone(userTimezone || savedTimezone || 'Auto-detect');
+            
+            // Reset states
+            setModalError('');
+            setModalSuccess('');
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmNewPassword('');
+            if (activeTab !== 'account') setActiveTab('account'); // Default to account tab
         }
-    }, [isOpen]);
+    }, [isOpen, currentUser]); // Add currentUser dependency
 
     const handlePasswordSubmit = async (e) => {
         e.preventDefault();
@@ -40,11 +49,15 @@ export default function SettingsModal({ isOpen, onClose, onSuccess, onError, use
         setModalSuccess('');
         
         if (newPassword !== confirmNewPassword) {
-            setModalError("New passwords do not match.");
+            const errMsg = "New passwords do not match.";
+            setModalError(errMsg);
+            if (onError) onError(errMsg);
             return;
         }
         if (newPassword.length < 6) {
-            setModalError("New password must be at least 6 characters long.");
+            const errMsg = "New password must be at least 6 characters long.";
+            setModalError(errMsg);
+            if (onError) onError(errMsg);
             return;
         }
 
@@ -54,13 +67,16 @@ export default function SettingsModal({ isOpen, onClose, onSuccess, onError, use
                 method: 'POST',
                 body: JSON.stringify({ currentPassword, newPassword }),
             });
-            setModalSuccess(response.message || "Password changed successfully!");
+            const successMsg = response.message || "Password changed successfully!";
+            setModalSuccess(successMsg);
+            if (onSuccess) onSuccess(successMsg);
             setCurrentPassword(''); 
             setNewPassword(''); 
             setConfirmNewPassword('');
         } catch (err) {
             const errorMessage = err.message || "Failed to change password.";
             setModalError(errorMessage);
+            if (onError) onError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -70,19 +86,38 @@ export default function SettingsModal({ isOpen, onClose, onSuccess, onError, use
         e.preventDefault();
         setModalError('');
         setModalSuccess('');
+        setLoading(true);
 
         try {
-            // Save timezone preference
-            localStorage.setItem('userTimezone', timezone);
-            setModalSuccess("Timezone preference saved successfully!");
+            // Save timezone preference to backend
+            await apiCall('/user/preferences/timezone', { // Assuming endpoint like this
+                method: 'PUT', // Or POST, depending on backend API design
+                body: JSON.stringify({ timezone }),
+            });
             
-            // You could also save this to the backend if you want to persist it across devices
-            // await apiCall('/user/timezone', {
-            //     method: 'POST',
-            //     body: JSON.stringify({ timezone }),
-            // });
+            // Update localStorage as a fallback or for immediate local reflection
+            localStorage.setItem('userTimezone', timezone);
+            
+            // Update AuthContext/currentUser state
+            if (currentUser && setCurrentUser) {
+                setCurrentUser({
+                    ...currentUser,
+                    preferences: {
+                        ...currentUser.preferences,
+                        timezone: timezone,
+                    },
+                });
+            }
+            const successMsg = "Timezone preference saved successfully!";
+            setModalSuccess(successMsg);
+            if (onSuccess) onSuccess(successMsg);
+
         } catch (err) {
-            setModalError("Failed to save timezone preference.");
+            const errorMessage = err.message || "Failed to save timezone preference.";
+            setModalError(errorMessage);
+            if (onError) onError(errorMessage);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -216,8 +251,8 @@ export default function SettingsModal({ isOpen, onClose, onSuccess, onError, use
                                 </p>
                             </div>
                             <div className="flex justify-end">
-                                <button type="submit" className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 rounded">
-                                    Save Timezone
+                                <button type="submit" disabled={loading} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 rounded">
+                                    {loading && activeTab === 'preferences' ? 'Saving...' : 'Save Timezone'}
                                 </button>
                             </div>
                         </form>

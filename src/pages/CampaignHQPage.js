@@ -3,9 +3,11 @@ import CampaignHQ from '../components/CampaignHQ';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { apiCall } from '../api'; // Import apiCall
+import { useNotification } from '../contexts/NotificationContext'; // Import useNotification
 
 const CampaignHQPage = () => {
     const { user: currentUser } = useAuth();
+    const { showNotification } = useNotification(); // Get showNotification
     const [activeCampaigns, setActiveCampaigns] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -19,6 +21,7 @@ const CampaignHQPage = () => {
                     setLoading(false);
                 } catch (error) {
                     console.error("Failed to fetch active campaigns:", error);
+                    showNotification("Failed to fetch active campaigns. Please try again later.", "error"); // Add notification
                     setActiveCampaigns([]); // Assume no active campaigns on error
                     setLoading(false);
                 }

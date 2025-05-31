@@ -3,10 +3,12 @@ import { apiCall } from '../api';
 import PlayerDisplayName from './PlayerDisplayName'; // Import PlayerDisplayName
 import StanceDisplay from './StanceDisplay'; // Import StanceDisplay
 import { formatDateOnly, formatLongDate } from '../utils/dateUtils'; // Import date utilities
-// import { useAuth } from '../contexts/AuthContext'; // Assuming AuthContext provides currentUser
+import { useAuth } from '../contexts/AuthContext'; // Assuming AuthContext provides currentUser
+import { useNotification } from '../contexts/NotificationContext'; // Import NotificationContext
 
-const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser prop
-    // const { user: currentUser } = useAuth(); // If using AuthContext
+const PartyManagement = ({ partyId }) => { // Added currentUser prop
+    const { user: currentUser } = useAuth(); // If using AuthContext
+    const { addNotification } = useNotification(); // Destructure addNotification
     const [partyDetails, setPartyDetails] = useState(null);
     const [candidates, setCandidates] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -32,12 +34,10 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
     const [isSubmittingVotes, setIsSubmittingVotes] = useState(false);
     const [hasVotedThisCycle, setHasVotedThisCycle] = useState(false);
     const [lastVoteSubmissionTime, setLastVoteSubmissionTime] = useState(null);
-    const [voteSubmissionMessage, setVoteSubmissionMessage] = useState('');
 
     // New state for party dues management
     const [newDuesPercentage, setNewDuesPercentage] = useState(0);
     const [isSettingDues, setIsSettingDues] = useState(false);
-    const [duesMessage, setDuesMessage] = useState('');
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-US', {
@@ -118,7 +118,9 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 setElectionCycleEndDisplay(formatLongDate(electionCycleEndDate));
 
             } catch (err) {
-                setError('Failed to load party data');
+                console.error('Failed to load party data:', err); // Log the actual error
+                setError('Failed to load party data. See console for details.'); // Update message
+                addNotification('Failed to load party data: ' + (err.message || 'Unknown error'), 'error'); // Notify user
                 setLoading(false);
             }
         };
@@ -200,10 +202,9 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
     };
 
     const handleManualRefresh = async () => {
-        setVoteSubmissionMessage('Refreshing vote data...');
+        addNotification('Refreshing vote data...', 'info');
         await refreshData();
-        setVoteSubmissionMessage('Vote data refreshed!');
-        setTimeout(() => setVoteSubmissionMessage(''), 2000);
+        addNotification('Vote data refreshed!', 'success');
     };
 
     const handleFundingProposal = async (e) => {
@@ -213,12 +214,14 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 method: 'POST',
                 body: JSON.stringify({
                     partyId,
+                    targetMemberId,
                     targetUserFirstName: targetMemberFirstName,
                     targetUserLastName: targetMemberLastName,
                     amount: parseInt(fundingAmount),
                     reason: fundingReason
                 })
             });
+            addNotification('Funding proposal submitted successfully!', 'success');
             // Reset form
             setFundingAmount('');
             setFundingReason('');
@@ -228,7 +231,9 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
             const partyRes = await apiCall(`/party/${partyId}`);
             setPartyDetails(partyRes);
         } catch (err) {
+            console.error('Failed to submit funding proposal:', err);
             setError(err.message || 'Failed to submit funding proposal');
+            addNotification('Error submitting funding proposal: ' + (err.message || 'Unknown error'), 'error');
         }
     };
 
@@ -247,8 +252,10 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
             // Refresh data
             await refreshData();
             setError(null);
+            addNotification('Successfully declared candidacy!', 'success');
         } catch (err) {
             setError(err.message || 'Failed to submit candidacy');
+            addNotification('Failed to submit candidacy: ' + (err.message || 'Unknown error'), 'error');
         }
     };
 
@@ -264,15 +271,16 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
             // Refresh data
             await refreshData();
             setError(null);
+            addNotification('Successfully withdrew candidacy.', 'success');
         } catch (err) {
             setError(err.message || 'Failed to withdraw candidacy');
+            addNotification('Failed to withdraw candidacy: ' + (err.message || 'Unknown error'), 'error');
         }
     };
 
     const handleLeadershipVote = async (e) => { // Modified to take event
         e.preventDefault(); // Prevent default form submission
         setIsSubmittingVotes(true);
-        setVoteSubmissionMessage('');
         try {
             await apiCall('/party/leadership/vote', {
                 method: 'POST',
@@ -287,7 +295,7 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
             // Update vote submission state
             setHasVotedThisCycle(true);
             setLastVoteSubmissionTime(new Date());
-            setVoteSubmissionMessage(hasVotedThisCycle ? 'Votes updated successfully!' : 'Votes submitted successfully!');
+            addNotification(hasVotedThisCycle ? 'Votes updated successfully!' : 'Votes submitted successfully!', 'success');
             
             // Refresh data to get updated votes and tallies
             await refreshData();
@@ -297,8 +305,7 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
             const partyRes = await apiCall(`/party/${partyId}`);
             setPartyDetails(partyRes);
         } catch (err) {
-            setError(err.message || 'Failed to submit vote');
-            setVoteSubmissionMessage('');
+            addNotification('Failed to submit vote: ' + (err.message || 'Unknown error'), 'error');
         } finally {
             setIsSubmittingVotes(false);
         }
@@ -328,7 +335,6 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
     const handleSetPartyDues = async (e) => {
         e.preventDefault();
         setIsSettingDues(true);
-        setDuesMessage('');
         try {
             await apiCall(`/party/${partyId}/dues`, {
                 method: 'POST',
@@ -338,7 +344,7 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                 })
             });
             
-            setDuesMessage(`Party dues successfully set to ${newDuesPercentage}%`);
+            addNotification(`Party dues successfully set to ${newDuesPercentage}%`, 'success');
             setNewDuesPercentage(0);
             
             // Refresh party details
@@ -346,7 +352,7 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
             setPartyDetails(partyRes);
             
         } catch (err) {
-            setDuesMessage(`Error: ${err.message || 'Failed to set party dues'}`);
+            addNotification(`Error setting party dues: ${err.message || 'Failed to set party dues'}`, 'error');
         } finally {
             setIsSettingDues(false);
         }
@@ -583,12 +589,6 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                         </p>
                     </div>
 
-                    {duesMessage && (
-                        <div className={`mb-4 p-3 rounded-lg ${duesMessage.startsWith('Error') ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
-                            <p className={duesMessage.startsWith('Error') ? 'text-red-800' : 'text-green-800'}>{duesMessage}</p>
-                        </div>
-                    )}
-
                     <form onSubmit={handleSetPartyDues} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">
@@ -652,13 +652,6 @@ const PartyManagement = ({ partyId, currentUser }) => { // Added currentUser pro
                         <p className="text-xs text-green-600 mt-1">
                             You can change your votes anytime before voting closes.
                         </p>
-                    </div>
-                )}
-                
-                {/* Success Message */}
-                {voteSubmissionMessage && (
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-blue-800 font-medium">{voteSubmissionMessage}</p>
                     </div>
                 )}
                 

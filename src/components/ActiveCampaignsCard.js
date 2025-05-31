@@ -2,21 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { apiCall } from '../api';
 import { DollarSign, TrendingUp, TrendingDown, Activity } from 'lucide-react';
+import { useNotification } from '../contexts/NotificationContext';
 
 const ActiveCampaignsCard = ({ userId, isOwnProfile }) => {
     const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const { showError: showToastError } = useNotification();
 
     useEffect(() => {
         const fetchCampaigns = async () => {
             try {
                 setLoading(true);
+                setError('');
                 const endpoint = isOwnProfile ? '/profile/my-candidacies' : `/profiles/${userId}/active-candidacies`;
                 const data = await apiCall(endpoint);
                 setCampaigns(data);
             } catch (err) {
-                setError('Failed to load campaign information');
+                const errorMessage = 'Failed to load campaign information. Please try refreshing.';
+                setError(errorMessage);
+                showToastError(err.message || errorMessage);
                 console.error(err);
             } finally {
                 setLoading(false);
@@ -24,7 +29,7 @@ const ActiveCampaignsCard = ({ userId, isOwnProfile }) => {
         };
 
         fetchCampaigns();
-    }, [userId, isOwnProfile]);
+    }, [userId, isOwnProfile, showToastError]);
 
     if (loading) {
         return (
@@ -73,21 +78,21 @@ const ActiveCampaignsCard = ({ userId, isOwnProfile }) => {
                                 <DollarSign size={16} className="text-green-400" />
                                 <div>
                                     <p className="text-sm text-gray-400">Current Funds</p>
-                                    <p className="text-gray-100">${campaign.current_funds?.toLocaleString()}</p>
+                                    <p className="text-gray-100">${(campaign.current_funds || 0).toLocaleString()}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <TrendingUp size={16} className="text-blue-400" />
                                 <div>
                                     <p className="text-sm text-gray-400">Total Raised</p>
-                                    <p className="text-gray-100">${campaign.total_raised?.toLocaleString()}</p>
+                                    <p className="text-gray-100">${(campaign.total_raised || 0).toLocaleString()}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <TrendingDown size={16} className="text-red-400" />
                                 <div>
                                     <p className="text-sm text-gray-400">Total Spent</p>
-                                    <p className="text-gray-100">${campaign.total_spent?.toLocaleString()}</p>
+                                    <p className="text-gray-100">${(campaign.total_spent || 0).toLocaleString()}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">

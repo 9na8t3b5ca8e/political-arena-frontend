@@ -1,56 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { apiCall } from '../api';
+import { useNotification } from '../contexts/NotificationContext';
 
 const CampaignHQ = () => {
+    const { showNotification } = useNotification();
     const [availableStaff, setAvailableStaff] = useState([]);
     const [hiredStaff, setHiredStaff] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [availableRes, hiredRes] = await Promise.all([
+                apiCall('/staff/available'),
+                apiCall('/staff/hired')
+            ]);
+            setAvailableStaff(availableRes);
+            setHiredStaff(hiredRes);
+        } catch (err) {
+            showNotification('Failed to load campaign staff data. Please refresh the page.', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [availableRes, hiredRes] = await Promise.all([
-                    apiCall('/staff/available'),
-                    apiCall('/staff/hired')
-                ]);
-                setAvailableStaff(availableRes);
-                setHiredStaff(hiredRes);
-                setLoading(false);
-            } catch (err) {
-                setError('Failed to load campaign staff data');
-                setLoading(false);
-            }
-        };
-
         fetchData();
     }, []);
 
     const handleHire = async (staffTypeId) => {
         try {
-            await apiCall('/staff/hire', { 
+            await apiCall('/staff/hire', {
                 method: 'POST',
                 body: JSON.stringify({ staffTypeId })
             });
-            // Refresh hired staff list
-            const hiredRes = await apiCall('/staff/hired');
-            setHiredStaff(hiredRes);
+            showNotification('Staff member hired successfully!', 'success');
+            await fetchData();
         } catch (err) {
-            setError(err.message || 'Failed to hire staff member');
+            showNotification(err.message || 'Failed to hire staff member. Please try again.', 'error');
         }
     };
 
     const handleFire = async (hiredStaffId) => {
         try {
-            await apiCall('/staff/fire', { 
+            await apiCall('/staff/fire', {
                 method: 'POST',
                 body: JSON.stringify({ hiredStaffId })
             });
-            // Refresh hired staff list
-            const hiredRes = await apiCall('/staff/hired');
-            setHiredStaff(hiredRes);
+            showNotification('Staff member fired successfully!', 'success');
+            await fetchData();
         } catch (err) {
-            setError(err.message || 'Failed to fire staff member');
+            showNotification(err.message || 'Failed to fire staff member. Please try again.', 'error');
         }
     };
 
@@ -62,7 +62,6 @@ const CampaignHQ = () => {
     };
 
     if (loading) return <div className="p-4">Loading...</div>;
-    if (error) return <div className="p-4 text-red-600">{error}</div>;
 
     return (
         <div className="p-4 space-y-6">

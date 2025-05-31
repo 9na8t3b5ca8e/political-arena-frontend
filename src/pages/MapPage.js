@@ -7,6 +7,7 @@ const GEO_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
 
 export default function MapPage() {
   const [tooltipContent, setTooltipContent] = useState('');
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const navigate = useNavigate(); // INITIALIZE THIS
 
   const handleStateClick = (geo) => {
@@ -14,10 +15,27 @@ export default function MapPage() {
     navigate(`/state/${encodeURIComponent(stateName)}`); // NAVIGATE HERE
   };
 
+  const handleMouseMove = (event) => {
+    // Adjust position slightly to be offset from cursor
+    setTooltipPosition({ x: event.clientX + 15, y: event.clientY + 10 });
+  };
+
   return (
-    <div className="bg-gray-800 p-2 rounded-lg shadow-xl">
+    <div className="bg-gray-800 p-2 rounded-lg shadow-xl" onMouseMove={handleMouseMove}>
       <h2 className="text-xl font-bold text-blue-400 mb-4 px-2">USA Political Map</h2>
-       {tooltipContent && <div className="absolute bg-black text-white p-2 rounded text-xs" style={{pointerEvents: 'none'}}>{tooltipContent}</div>}
+      {tooltipContent && (
+        <div 
+            className="fixed bg-black text-white p-2 rounded text-xs shadow-lg"
+            style={{ 
+                left: tooltipPosition.x,
+                top: tooltipPosition.y,
+                pointerEvents: 'none',
+                zIndex: 1000 // Ensure tooltip is above other elements
+            }}
+        >
+            {tooltipContent}
+        </div>
+      )}
       <ComposableMap projection="geoAlbersUsa" style={{ width: "100%", height: "auto" }}>
         <Geographies geography={GEO_URL}>
           {({ geographies }) =>

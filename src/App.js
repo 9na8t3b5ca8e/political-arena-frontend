@@ -143,6 +143,7 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [policiesAccepted, setPoliciesAccepted] = useState(false);
     const [showPolicyModal, setShowPolicyModal] = useState(false);
+    const { loginUser } = useAuth();
 
     const handleAuth = async (e) => {
         e.preventDefault(); 
@@ -160,12 +161,11 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess }) => {
             }
             
             const response = await apiCall(`/auth/${action}`, { method: 'POST', body: JSON.stringify(form) });
-            localStorage.setItem('authToken', response.token);
+            
+            const loggedInUserData = await loginUser(response.token);
             
             if (action === 'register') {
-                // After successful registration, fetch the initial profile to pass to ProfileSetup
-                const initialProfile = await apiCall('/auth/profile');
-                onRegistrationSuccess(initialProfile); // Pass this to AuthRouter
+                onRegistrationSuccess(loggedInUserData);
             }
         } catch (err) { 
             setError(err.message); 

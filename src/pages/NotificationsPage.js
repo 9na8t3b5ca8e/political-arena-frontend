@@ -17,7 +17,7 @@ const NotificationsPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState('newest'); // newest, oldest
     const [showFilterDropdown, setShowFilterDropdown] = useState(false);
-    const { showSuccess, showError } = useNotification();
+    const { showSuccess: showToastSuccess, showError: showToastError } = useNotification();
 
     // Fetch notifications
     const fetchNotifications = async () => {
@@ -29,13 +29,13 @@ const NotificationsPage = () => {
             if (typeFilter !== 'all') params.append('type', typeFilter);
             if (searchQuery) params.append('search', searchQuery);
             params.append('sort', sortBy);
-            params.append('limit', '100'); // Get more for full page view
+            params.append('limit', '100');
 
             const response = await apiCall(`/notifications?${params.toString()}`);
             setNotifications(response.notifications || []);
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
-            showError('Failed to load notifications');
+            showToastError('Failed to load notifications');
         } finally {
             setLoading(false);
         }
@@ -102,9 +102,9 @@ const NotificationsPage = () => {
                 )
             );
             
-            showSuccess(currentReadStatus ? 'Marked as unread' : 'Marked as read');
+            showToastSuccess(currentReadStatus ? 'Marked as unread' : 'Marked as read');
         } catch (error) {
-            showError('Failed to update notification');
+            showToastError('Failed to update notification');
         }
     };
 
@@ -114,20 +114,23 @@ const NotificationsPage = () => {
             await apiCall(`/notifications/${notificationId}`, { method: 'DELETE' });
             setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
             setSelectedNotifications(prev => prev.filter(id => id !== notificationId));
-            showSuccess('Notification deleted');
+            showToastSuccess('Notification deleted');
         } catch (error) {
-            showError('Failed to delete notification');
+            showToastError('Failed to delete notification');
         }
     };
 
     // Bulk actions
     const markAllAsRead = async () => {
+        if (!window.confirm('Are you sure you want to mark all notifications as read?')) {
+            return;
+        }
         try {
             await apiCall('/notifications/mark-all-read', { method: 'PUT' });
             setNotifications(prev => prev.map(notif => ({ ...notif, is_read: true })));
-            showSuccess('All notifications marked as read');
+            showToastSuccess('All notifications marked as read');
         } catch (error) {
-            showError('Failed to mark all as read');
+            showToastError('Failed to mark all as read');
         }
     };
 
@@ -147,9 +150,9 @@ const NotificationsPage = () => {
             );
             
             setSelectedNotifications([]);
-            showSuccess(`${selectedNotifications.length} notifications marked as read`);
+            showToastSuccess(`${selectedNotifications.length} notifications marked as read`);
         } catch (error) {
-            showError('Failed to mark selected as read');
+            showToastError('Failed to mark selected as read');
         }
     };
 
@@ -169,9 +172,9 @@ const NotificationsPage = () => {
             );
             
             setSelectedNotifications([]);
-            showSuccess(`${selectedNotifications.length} notifications deleted`);
+            showToastSuccess(`${selectedNotifications.length} notifications deleted`);
         } catch (error) {
-            showError('Failed to delete selected notifications');
+            showToastError('Failed to delete selected notifications');
         }
     };
 
@@ -191,16 +194,6 @@ const NotificationsPage = () => {
                 : [...prev, notificationId]
         );
     };
-
-    // Filter notifications
-    const filteredNotifications = notifications.filter(notification => {
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            return notification.message.toLowerCase().includes(query) ||
-                   notification.data?.user_name?.toLowerCase().includes(query);
-        }
-        return true;
-    });
 
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
@@ -331,8 +324,8 @@ const NotificationsPage = () => {
                         <div className="animate-spin h-8 w-8 border-2 border-blue-400 border-t-transparent rounded-full mx-auto mb-4"></div>
                         <p className="text-gray-400">Loading notifications...</p>
                     </div>
-                ) : filteredNotifications.length > 0 ? (
-                    filteredNotifications.map((notification) => (
+                ) : notifications.length > 0 ? (
+                    notifications.map((notification) => (
                         <div
                             key={notification.id}
                             className={`bg-gray-800 border border-gray-700 rounded-lg p-4 transition-colors ${

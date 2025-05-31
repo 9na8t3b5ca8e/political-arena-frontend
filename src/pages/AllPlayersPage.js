@@ -9,11 +9,12 @@ import {
 } from 'lucide-react';
 import PositionBadge from '../components/PositionBadge';
 import { allStates } from '../state-data';
+import { useNotification } from '../contexts/NotificationContext';
 
-const AllPlayersPage = ({ currentUser }) => {
+const AllPlayersPage = () => {
     const [players, setPlayers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+    const { addNotification } = useNotification();
     const [pagination, setPagination] = useState({});
     const [stats, setStats] = useState({});
     
@@ -49,11 +50,11 @@ const AllPlayersPage = ({ currentUser }) => {
 
     useEffect(() => {
         fetchPlayers();
-    }, [filters]);
+    }, [filters, addNotification]);
 
     useEffect(() => {
         fetchStats();
-    }, []);
+    }, [addNotification]);
 
     const fetchPlayers = async () => {
         try {
@@ -70,8 +71,8 @@ const AllPlayersPage = ({ currentUser }) => {
             setPlayers(data.players);
             setPagination(data.pagination);
         } catch (err) {
-            setError('Failed to load players');
-            console.error(err);
+            addNotification(`Failed to load players: ${err.message || 'Unknown error'}`, 'error');
+            console.error('Failed to load players:', err);
         } finally {
             setLoading(false);
         }
@@ -82,6 +83,7 @@ const AllPlayersPage = ({ currentUser }) => {
             const data = await apiCall('/players/stats');
             setStats(data);
         } catch (err) {
+            addNotification(`Failed to load player stats: ${err.message || 'Unknown error'}`, 'error');
             console.error('Failed to load player stats:', err);
         }
     };
@@ -135,11 +137,11 @@ const AllPlayersPage = ({ currentUser }) => {
 
     const getSortIcon = (sortField) => {
         if (filters.sortBy !== sortField) {
-            return <ArrowUpDown size={14} className="text-gray-500" />;
+            return <ArrowUpDown size={14} className="text-gray-500" aria-hidden="true" />;
         }
         return filters.sortOrder === 'asc' ? 
-            <ArrowUp size={14} className="text-blue-400" /> : 
-            <ArrowDown size={14} className="text-blue-400" />;
+            <ArrowUp size={14} className="text-blue-400" aria-hidden="true" /> : 
+            <ArrowDown size={14} className="text-blue-400" aria-hidden="true" />;
     };
 
     const getCurrentSortLabel = () => {
@@ -153,7 +155,7 @@ const AllPlayersPage = ({ currentUser }) => {
                 {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-4xl font-bold text-blue-200 mb-4 flex items-center">
-                        <Users className="mr-3" size={36} />
+                        <Users className="mr-3" size={36} aria-hidden="true" />
                         All Registered Players
                     </h1>
                     
@@ -182,14 +184,14 @@ const AllPlayersPage = ({ currentUser }) => {
                     {/* Filters and Sorting */}
                     <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-6">
                         <div className="flex items-center mb-4">
-                            <Filter className="mr-2" size={20} />
+                            <Filter className="mr-2" size={20} aria-hidden="true" />
                             <h3 className="text-lg font-semibold text-blue-200">Filters & Sorting</h3>
                         </div>
                         
                         {/* First Row: Search and Sort */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} aria-hidden="true" />
                                 <input
                                     type="text"
                                     placeholder="Search players..."
@@ -286,10 +288,6 @@ const AllPlayersPage = ({ currentUser }) => {
                     <div className="text-center py-12">
                         <div className="text-gray-400">Loading players...</div>
                     </div>
-                ) : error ? (
-                    <div className="bg-red-500/20 text-red-400 p-4 rounded-lg">
-                        {error}
-                    </div>
                 ) : (
                     <>
                         {/* Players List */}
@@ -310,7 +308,7 @@ const AllPlayersPage = ({ currentUser }) => {
                                                 filters.sortBy === 'approval' ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                                             }`}
                                         >
-                                            <TrendingUp size={14} />
+                                            <TrendingUp size={14} aria-hidden="true" />
                                             <span>Approval</span>
                                             {filters.sortBy === 'approval' && getSortIcon('approval')}
                                         </button>
@@ -320,7 +318,7 @@ const AllPlayersPage = ({ currentUser }) => {
                                                 filters.sortBy === 'funds' ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                                             }`}
                                         >
-                                            <DollarSign size={14} />
+                                            <DollarSign size={14} aria-hidden="true" />
                                             <span>Funds</span>
                                             {filters.sortBy === 'funds' && getSortIcon('funds')}
                                         </button>
@@ -330,7 +328,7 @@ const AllPlayersPage = ({ currentUser }) => {
                                                 filters.sortBy === 'name' ? 'bg-blue-600 text-white' : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                                             }`}
                                         >
-                                            <UserCircle2 size={14} />
+                                            <UserCircle2 size={14} aria-hidden="true" />
                                             <span>Name</span>
                                             {filters.sortBy === 'name' && getSortIcon('name')}
                                         </button>
@@ -341,14 +339,6 @@ const AllPlayersPage = ({ currentUser }) => {
                             {loading ? (
                                 <div className="p-8 text-center">
                                     <div className="text-gray-400">Loading players...</div>
-                                </div>
-                            ) : error ? (
-                                <div className="p-8 text-center">
-                                    <div className="text-red-400">{error}</div>
-                                </div>
-                            ) : players.length === 0 ? (
-                                <div className="p-8 text-center">
-                                    <div className="text-gray-400">No players found matching your criteria.</div>
                                 </div>
                             ) : (
                                 <>
@@ -420,7 +410,7 @@ const AllPlayersPage = ({ currentUser }) => {
                                                                 className="w-10 h-10 rounded-full object-cover border border-gray-600"
                                                             />
                                                         ) : (
-                                                            <UserCircle2 className="w-10 h-10 text-gray-400" />
+                                                            <UserCircle2 className="w-10 h-10 text-gray-400" aria-hidden="true" />
                                                         )}
                                                         <div>
                                                             <Link 
@@ -462,7 +452,7 @@ const AllPlayersPage = ({ currentUser }) => {
                                                     {/* Approval */}
                                                     <div className="col-span-1">
                                                         <div className="flex items-center space-x-1">
-                                                            <TrendingUp size={14} className="text-green-400" />
+                                                            <TrendingUp size={14} className="text-green-400" aria-hidden="true" />
                                                             <span className="text-sm font-medium">{player.approval_rating}%</span>
                                                         </div>
                                                     </div>
@@ -470,7 +460,7 @@ const AllPlayersPage = ({ currentUser }) => {
                                                     {/* Campaign Funds */}
                                                     <div className="col-span-2">
                                                         <div className="flex items-center space-x-1">
-                                                            <DollarSign size={14} className="text-yellow-400" />
+                                                            <DollarSign size={14} className="text-yellow-400" aria-hidden="true" />
                                                             <span className="text-sm font-medium">
                                                                 ${player.campaign_funds?.toLocaleString()}
                                                             </span>
@@ -480,7 +470,7 @@ const AllPlayersPage = ({ currentUser }) => {
                                                     {/* Political Capital */}
                                                     <div className="col-span-1">
                                                         <div className="flex items-center space-x-1">
-                                                            <Building2 size={14} className="text-purple-400" />
+                                                            <Building2 size={14} className="text-purple-400" aria-hidden="true" />
                                                             <span className="text-sm font-medium">{player.political_capital}</span>
                                                         </div>
                                                     </div>
@@ -496,7 +486,7 @@ const AllPlayersPage = ({ currentUser }) => {
                                                                 className="w-12 h-12 rounded-full object-cover border border-gray-600"
                                                             />
                                                         ) : (
-                                                            <UserCircle2 className="w-12 h-12 text-gray-400" />
+                                                            <UserCircle2 className="w-12 h-12 text-gray-400" aria-hidden="true" />
                                                         )}
                                                         
                                                         <div className="flex-grow">
@@ -529,19 +519,19 @@ const AllPlayersPage = ({ currentUser }) => {
                                                             {/* Stats Grid */}
                                                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                                                                 <div className="flex items-center space-x-1">
-                                                                    <MapPin size={14} className="text-blue-400" />
+                                                                    <MapPin size={14} className="text-blue-400" aria-hidden="true" />
                                                                     <span className="text-gray-300">{player.home_state}</span>
                                                                 </div>
                                                                 <div className="flex items-center space-x-1">
-                                                                    <Building2 size={14} className="text-orange-400" />
+                                                                    <Building2 size={14} className="text-orange-400" aria-hidden="true" />
                                                                     <span className="text-gray-300">{player.current_office}</span>
                                                                 </div>
                                                                 <div className="flex items-center space-x-1">
-                                                                    <TrendingUp size={14} className="text-green-400" />
-                                                                    <span className="font-medium">{player.approval_rating}%</span>
+                                                                    <TrendingUp size={14} className="text-green-400" aria-hidden="true" />
+                                                                    <span className="font-medium">{formatPercentage(player.approval_rating)}</span>
                                                                 </div>
                                                                 <div className="flex items-center space-x-1">
-                                                                    <DollarSign size={14} className="text-yellow-400" />
+                                                                    <DollarSign size={14} className="text-yellow-400" aria-hidden="true" />
                                                                     <span className="font-medium">${player.campaign_funds?.toLocaleString()}</span>
                                                                 </div>
                                                             </div>
@@ -568,7 +558,7 @@ const AllPlayersPage = ({ currentUser }) => {
                                         disabled={!pagination.hasPrevPage}
                                         className="flex items-center px-3 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        <ChevronLeft size={16} className="mr-1" />
+                                        <ChevronLeft size={16} className="mr-1" aria-hidden="true" />
                                         Previous
                                     </button>
                                     
@@ -582,7 +572,7 @@ const AllPlayersPage = ({ currentUser }) => {
                                         className="flex items-center px-3 py-2 text-sm font-medium text-gray-300 bg-gray-700 border border-gray-600 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Next
-                                        <ChevronRight size={16} className="ml-1" />
+                                        <ChevronRight size={16} className="ml-1" aria-hidden="true" />
                                     </button>
                                 </div>
                             </div>

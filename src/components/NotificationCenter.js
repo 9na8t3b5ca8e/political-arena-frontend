@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, Check, Trash2, ExternalLink, Clock, DollarSign, Sword, Shield } from 'lucide-react';
 import { apiCall } from '../api';
+import { useNotification as useToastNotification } from '../contexts/NotificationContext';
 
 const NotificationCenter = ({ currentUser }) => {
     const [notifications, setNotifications] = useState([]);
@@ -9,16 +10,23 @@ const NotificationCenter = ({ currentUser }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const dropdownRef = useRef(null);
+    const { showError: showToastError, showSuccess: showToastSuccess } = useToastNotification();
 
     // Fetch notifications from API
     const fetchNotifications = async () => {
         try {
             setLoading(true);
-            const response = await apiCall('/notifications');
+            // Fetch a limited number of newest notifications
+            const params = new URLSearchParams();
+            params.append('sort', 'newest');
+            params.append('limit', '15'); // Fetch a bit more than display limit for local filtering if needed
+            
+            const response = await apiCall(`/notifications?${params.toString()}`);
             setNotifications(response.notifications || []);
             setUnreadCount(response.unreadCount || 0);
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
+            showToastError('Failed to load notifications. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -35,22 +43,28 @@ const NotificationCenter = ({ currentUser }) => {
                         : notif
                 )
             );
-            setUnreadCount(prev => Math.max(0, prev - 1));
+            // Optimistically update unread count, server will send authoritative one on next poll
+            setUnreadCount(prev => Math.max(0, prev - 1)); 
+            // showToastSuccess('Notification marked as read.'); // Optional: can be noisy
         } catch (error) {
             console.error('Failed to mark notification as read:', error);
+            showToastError('Failed to update notification status.');
         }
     };
 
     // Mark all notifications as read
     const markAllAsRead = async () => {
+        if (unreadCount === 0) return; // No action if no unread notifications
         try {
             await apiCall('/notifications/mark-all-read', { method: 'PUT' });
             setNotifications(prev => 
                 prev.map(notif => ({ ...notif, is_read: true }))
             );
             setUnreadCount(0);
+            showToastSuccess('All notifications marked as read.');
         } catch (error) {
             console.error('Failed to mark all notifications as read:', error);
+            showToastError('Failed to mark all notifications as read.');
         }
     };
 
@@ -105,9 +119,14 @@ const NotificationCenter = ({ currentUser }) => {
                     <Link 
                         to={`/profile/${data.user_id}`}
                         className="text-blue-400 hover:text-blue-300 font-medium"
-                        onClick={() => {
-                            markAsRead(notification.id);
-                            setIsOpen(false);
+                        onClick={(e) => {
+                            // Allow link navigation, but stop propagation to prevent parent onClick
+                            e.stopPropagation(); 
+                            // Mark as read is handled by handleNotificationClick or link can also do it
+                            // if (!notification.is_read) {
+                            // markAsRead(notification.id); // Can be done here if desired
+                            // }
+                            setIsOpen(false); // Close dropdown on link click
                         }}
                     >
                         {data.user_name}
@@ -128,9 +147,11 @@ const NotificationCenter = ({ currentUser }) => {
         if (!notification.is_read) {
             markAsRead(notification.id);
         }
+        // If the notification has a primary link/action, could navigate here too
+        // For now, just marking as read. Links inside formatMessage handle navigation.
     };
 
-    // Limit notifications in dropdown to 10
+    // Limit notifications in dropdown to 10 (fetched 15)
     const displayedNotifications = notifications.slice(0, 10);
 
     return (

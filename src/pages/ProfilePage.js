@@ -17,6 +17,7 @@ import EditableField from '../components/EditableField';
 import ReadOnlyField from '../components/ReadOnlyField';
 import PositionBadge from '../components/PositionBadge';
 import ElectoralHistory from '../components/ElectoralHistory';
+import { useAuth } from '../contexts/AuthContext';
 
 // Helper to get stance label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value, 10))?.label || 'Moderate';
@@ -50,11 +51,11 @@ const religionOptions = [
 const NAME_CHANGE_COOLDOWN_DAYS = 7;
 const STANCE_CHANGE_PC_PER_POSITION = 5;
 
-export default function ProfilePage({ currentUser, setCurrentUser }) {
-    console.log("ProfilePage: Received currentUser prop:", currentUser);
+export default function ProfilePage() {
     const { userId: paramsUserId } = useParams();
     const navigate = useNavigate();
-
+    const { user: authCurrentUser, updateUser, refreshUser } = useAuth();
+    
     const [profileData, setProfileData] = useState(null);
     const [isOwnProfile, setIsOwnProfile] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -73,7 +74,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
     const [selectedProfilePictureFile, setSelectedProfilePictureFile] = useState(null);
     const [profilePicturePreview, setProfilePicturePreview] = useState(null);
     const [isUploadingPicture, setIsUploadingPicture] = useState(false);
-
+    const [isSaving, setIsSaving] = useState(false);
 
     const clearMessages = () => {
         setError('');
@@ -86,7 +87,6 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 firstName: data.first_name || '',
                 lastName: data.last_name || '',
                 username: data.username || '',
-                // email: data.email || '', // Email is no longer directly edited here
                 party: data.party || '',
                 home_state: data.home_state || '',
                 economic_stance: parseInt(data.economic_stance, 10) || 4,
@@ -102,39 +102,27 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             setBioCharCount(data.bio?.length || 0);
             setProfilePicturePreview(data.profile_picture_url || null);
 
-            if (profileData) {
-                 setEconStancePCCost(Math.abs(newEditableFields.economic_stance - profileData.economic_stance) * STANCE_CHANGE_PC_PER_POSITION);
-                 setSocialStancePCCost(Math.abs(newEditableFields.social_stance - profileData.social_stance) * STANCE_CHANGE_PC_PER_POSITION);
-            } else {
-                setEconStancePCCost(0);
-                setSocialStancePCCost(0);
-            }
+            setEconStancePCCost(0);
+            setSocialStancePCCost(0);
         }
-    }, [profileData]);
-
+    }, []);
 
     const loadProfile = useCallback(async () => {
         setLoading(true);
         clearMessages();
 
-        if (!currentUser) {
-            console.log("ProfilePage - loadProfile: currentUser is null, navigating away.");
+        if (!authCurrentUser && !paramsUserId) {
             navigate('/');
+            setLoading(false);
             return;
         }
 
         try {
-            const targetUserId = paramsUserId ? parseInt(paramsUserId, 10) : currentUser.id;
-            const viewingOwnProfile = targetUserId === currentUser.id;
-
+            const targetUserId = paramsUserId ? parseInt(paramsUserId, 10) : authCurrentUser.id;
+            const viewingOwnProfile = authCurrentUser ? (targetUserId === authCurrentUser.id) : false;
             setIsOwnProfile(viewingOwnProfile);
 
-            // Always make API call to get fresh profile data with party leadership info
-            const data = viewingOwnProfile 
-                ? await apiCall('/profile') 
-                : await apiCall(`/profiles/${targetUserId}`);
-                
-            console.log("ProfilePage - loadProfile: Setting profileData to:", data);
+            const data = await apiCall(viewingOwnProfile ? '/profile' : `/profiles/${targetUserId}`);
             setProfileData(data);
 
             if (data && data.home_state && data.economic_stance !== undefined && data.social_stance !== undefined) {
@@ -166,13 +154,11 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         } finally {
             setLoading(false);
         }
-    }, [paramsUserId, currentUser, navigate]);
+    }, [paramsUserId, authCurrentUser, navigate]);
 
     useEffect(() => {
-        if (currentUser) {
-            loadProfile();
-        }
-    }, [currentUser, paramsUserId, loadProfile]);
+        loadProfile();
+    }, [loadProfile]);
 
     useEffect(() => {
         if (profileData) {
@@ -180,8 +166,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         }
     }, [profileData, initializeEditableFields]);
 
-
-     useEffect(() => {
+    useEffect(() => {
         const currentFieldsSource = editMode ? editableFields : profileData;
         if (currentFieldsSource && currentFieldsSource.home_state && currentFieldsSource.economic_stance !== undefined && currentFieldsSource.social_stance !== undefined) {
             setAlignment(calculateStateAlignment(currentFieldsSource.economic_stance, currentFieldsSource.social_stance, currentFieldsSource.home_state));
@@ -192,9 +177,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         if (editMode && profileData && editableFields.social_stance !== undefined) {
              setSocialStancePCCost(Math.abs(editableFields.social_stance - profileData.social_stance) * STANCE_CHANGE_PC_PER_POSITION);
         }
-
     }, [editMode, profileData, editableFields.economic_stance, editableFields.social_stance, editableFields.home_state]);
-
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -266,7 +249,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
             }, true);
 
             setProfileData(response.updatedProfile);
-            if (setCurrentUser) setCurrentUser(response.updatedProfile);
+            if (updateUser) updateUser(response.updatedProfile);
             initializeEditableFields(response.updatedProfile);
             setSelectedProfilePictureFile(null);
             setSuccess(response.message || "Profile picture updated successfully!");
@@ -297,7 +280,7 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         try {
             const response = await apiCall('/profile/picture', { method: 'DELETE' });
             setProfileData(response.updatedProfile);
-            if (setCurrentUser) setCurrentUser(response.updatedProfile);
+            if (updateUser) updateUser(response.updatedProfile);
             initializeEditableFields(response.updatedProfile);
             setSelectedProfilePictureFile(null);
             setProfilePicturePreview(null);
@@ -309,9 +292,15 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
         }
     };
 
-
     const handleSaveChanges = async () => {
         clearMessages();
+        setIsSaving(true);
+
+        if (!profileData || !authCurrentUser) {
+            setError("Cannot save changes, user data not loaded.");
+            setIsSaving(false);
+            return;
+        }
 
         const nameChanged = editableFields.firstName !== profileData.first_name || editableFields.lastName !== profileData.last_name;
         const econStanceChanged = editableFields.economic_stance !== profileData.economic_stance;
@@ -319,24 +308,28 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
 
         if (nameChanged && isNameChangeCooldownActive) {
             setError(`You cannot change your name yet. Next available change: ${nextNameChangeDate}.`);
+            setIsSaving(false);
             return;
         }
         if (nameChanged && !isNameChangeCooldownActive) {
-            if (!window.confirm(`You are about to change your character's name. This can only be done once every ${NAME_CHANGE_COOLDOWN_DAYS} days. Are you sure?`)) {
+            if (!window.confirm(`You are about to change your character\'s name. This can only be done once every ${NAME_CHANGE_COOLDOWN_DAYS} days. Are you sure?`)) {
+                setIsSaving(false);
                 return;
             }
         }
 
-        const totalPCCostForStances = (econStanceChanged ? Math.abs(editableFields.economic_stance - profileData.economic_stance) * STANCE_CHANGE_PC_PER_POSITION : 0) +
-                                   (socialStanceChanged ? Math.abs(editableFields.social_stance - profileData.social_stance) * STANCE_CHANGE_PC_PER_POSITION : 0);
+        const totalPCCostForStances = 
+            (econStanceChanged ? Math.abs(editableFields.economic_stance - profileData.economic_stance) * STANCE_CHANGE_PC_PER_POSITION : 0) + 
+            (socialStanceChanged ? Math.abs(editableFields.social_stance - profileData.social_stance) * STANCE_CHANGE_PC_PER_POSITION : 0);
 
-
-        if (totalPCCostForStances > 0 && currentUser.political_capital < totalPCCostForStances) {
-            setError(`Insufficient Political Capital. You need ${totalPCCostForStances} PC to make these stance changes. You have ${currentUser.political_capital} PC.`);
+        if (totalPCCostForStances > 0 && authCurrentUser.political_capital < totalPCCostForStances) {
+            setError(`Insufficient Political Capital. You need ${totalPCCostForStances} PC to make these stance changes. You have ${authCurrentUser.political_capital} PC.`);
+            setIsSaving(false);
             return;
         }
         if (totalPCCostForStances > 0) {
             if (!window.confirm(`Changing stances will cost ${totalPCCostForStances} Political Capital and may affect your approval rating. Proceed?`)) {
+                setIsSaving(false);
                 return;
             }
         }
@@ -347,47 +340,42 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                 payload.firstName = editableFields.firstName;
                 payload.lastName = editableFields.lastName;
             }
-            const sourceForUpdate = { ...profileData, ...editableFields };
-
-            if (econStanceChanged) payload.economicStance = parseInt(sourceForUpdate.economic_stance, 10);
-            if (socialStanceChanged) payload.socialStance = parseInt(sourceForUpdate.social_stance, 10);
-            if (sourceForUpdate.bio !== profileData.bio) payload.bio = sourceForUpdate.bio;
-            if (sourceForUpdate.gender !== profileData.gender) payload.gender = sourceForUpdate.gender;
-            if (sourceForUpdate.race !== profileData.race) payload.race = sourceForUpdate.race;
-            if (sourceForUpdate.religion !== profileData.religion) payload.religion = sourceForUpdate.religion;
-            if (sourceForUpdate.age !== profileData.age) payload.age = sourceForUpdate.age ? parseInt(sourceForUpdate.age, 10) : null;
-            if (sourceForUpdate.party !== profileData.party) payload.party = sourceForUpdate.party;
-            if (sourceForUpdate.home_state !== profileData.home_state) payload.homeState = sourceForUpdate.home_state;
+            if (econStanceChanged) payload.economicStance = parseInt(editableFields.economic_stance, 10);
+            if (socialStanceChanged) payload.socialStance = parseInt(editableFields.social_stance, 10);
+            if (editableFields.bio !== profileData.bio) payload.bio = editableFields.bio;
+            if (editableFields.gender !== profileData.gender) payload.gender = editableFields.gender;
+            if (editableFields.race !== profileData.race) payload.race = editableFields.race;
+            if (editableFields.religion !== profileData.religion) payload.religion = editableFields.religion;
+            if (editableFields.age !== profileData.age) payload.age = editableFields.age ? parseInt(editableFields.age, 10) : null;
+            if (editableFields.party !== profileData.party) payload.party = editableFields.party;
+            if (editableFields.home_state !== profileData.home_state) payload.homeState = editableFields.home_state;
 
             if (Object.keys(payload).length === 0) {
                 setSuccess("No changes were made to your profile.");
                 setEditMode(false);
+                setIsSaving(false);
                 return;
             }
 
             const response = await apiCall('/profile', { method: 'PUT', body: JSON.stringify(payload) });
 
-            setProfileData(response.updatedProfile);
-            if (setCurrentUser) setCurrentUser(response.updatedProfile);
-            initializeEditableFields(response.updatedProfile);
-            setEditMode(false);
-            setSuccess(response.message || 'Profile updated successfully!');
-
-            if (response.updatedProfile.last_name_change_date) {
-                const lastChange = new Date(response.updatedProfile.last_name_change_date);
-                let cooldownEnds = new Date(lastChange.valueOf());
-                cooldownEnds.setDate(cooldownEnds.getDate() + NAME_CHANGE_COOLDOWN_DAYS);
-                const today = new Date();
-                if (today < cooldownEnds) {
-                    setIsNameChangeCooldownActive(true);
+            if (response.updatedProfile) {
+                updateUser(response.updatedProfile);
+                setProfileData(response.updatedProfile);
+                if (response.updatedProfile.last_name_change_date) {
+                    const lastChange = new Date(response.updatedProfile.last_name_change_date);
+                    let cooldownEnds = new Date(lastChange.valueOf());
+                    cooldownEnds.setDate(cooldownEnds.getDate() + NAME_CHANGE_COOLDOWN_DAYS);
+                    setIsNameChangeCooldownActive(new Date() < cooldownEnds);
                     setNextNameChangeDate(cooldownEnds.toLocaleDateString());
-                } else {
-                    setIsNameChangeCooldownActive(false);
-                    setNextNameChangeDate(null);
                 }
             }
+            setSuccess(response.message || 'Profile updated successfully!');
+            setEditMode(false);
         } catch (err) {
             setError(`Failed to save changes: ${err.message}`);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -585,9 +573,9 @@ export default function ProfilePage({ currentUser, setCurrentUser }) {
                     onClose={() => { setShowPasswordModal(false); clearMessages(); }}
                     onSuccess={(message) => { setSuccess(message); setShowPasswordModal(false); }}
                     onError={(message) => { setError(message); }}
-                    userEmail={currentUser?.email}
-                    currentUser={currentUser}
-                    setCurrentUser={setCurrentUser}
+                    userEmail={authCurrentUser?.email}
+                    currentUser={authCurrentUser}
+                    setCurrentUser={updateUser}
                 />
             )}
             <div className="max-w-4xl mx-auto mt-6">

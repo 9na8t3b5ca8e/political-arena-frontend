@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Check, FileText, Shield } from 'lucide-react';
 
+const PRIVACY_POLICY_LAST_UPDATED = "December 2024";
+const TERMS_OF_SERVICE_LAST_UPDATED = "December 2024";
+
 const PolicyAgreementModal = ({ isOpen, onClose, onAgreementComplete }) => {
     const [currentView, setCurrentView] = useState('menu'); // 'menu', 'privacy', 'terms'
     const [privacyAgreed, setPrivacyAgreed] = useState(false);
@@ -139,7 +142,7 @@ const PolicyAgreementModal = ({ isOpen, onClose, onAgreementComplete }) => {
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto p-6 space-y-6"
             >
-                <div className="text-gray-400 text-sm mb-4">Last updated: December 2024</div>
+                <div className="text-gray-400 text-sm mb-4">Last updated: {PRIVACY_POLICY_LAST_UPDATED}</div>
                 
                 <section>
                     <h3 className="text-lg font-semibold text-white mb-3">1. Introduction</h3>
@@ -279,7 +282,7 @@ const PolicyAgreementModal = ({ isOpen, onClose, onAgreementComplete }) => {
                 onScroll={handleScroll}
                 className="flex-1 overflow-y-auto p-6 space-y-6"
             >
-                <div className="text-gray-400 text-sm mb-4">Last updated: December 2024</div>
+                <div className="text-gray-400 text-sm mb-4">Last updated: {TERMS_OF_SERVICE_LAST_UPDATED}</div>
                 
                 <section>
                     <h3 className="text-lg font-semibold text-white mb-3">1. Acceptance of Terms</h3>

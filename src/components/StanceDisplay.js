@@ -1,5 +1,5 @@
 import React from 'react';
-import { stanceScale } from '../state-data';
+// import { stanceScale } from '../state-data'; // Unused import
 
 // Helper to get color class
 const getStanceBarColorClass = (value) => {
@@ -22,7 +22,7 @@ const getStanceTextColorClass = (value) => {
     return 'text-gray-400';
 };
 
-const StanceDisplay = ({ value, label, type = 'economic', showBar = true }) => {
+const StanceDisplay = ({ value, label, showBar = true }) => {
     if (!value) return <span className="text-gray-400">Not Set</span>;
     const colorClass = getStanceBarColorClass(value);
     const textColorClass = getStanceTextColorClass(value);

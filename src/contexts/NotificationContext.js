@@ -47,22 +47,15 @@ export const NotificationProvider = ({ children }) => {
             {children}
             {/* Render all active toasts */}
             <div className="fixed top-4 right-4 z-50 space-y-2">
-                {toasts.map((toast, index) => (
-                    <div
+                {toasts.map((toast) => (
+                    <Toast
                         key={toast.id}
-                        style={{
-                            transform: `translateY(${index * 80}px)`,
-                            transition: 'transform 0.3s ease-in-out'
-                        }}
-                    >
-                        <Toast
-                            message={toast.message}
-                            type={toast.type}
-                            duration={toast.duration}
-                            isVisible={true}
-                            onClose={() => removeToast(toast.id)}
-                        />
-                    </div>
+                        message={toast.message}
+                        type={toast.type}
+                        duration={toast.duration}
+                        isVisible={true}
+                        onClose={() => removeToast(toast.id)}
+                    />
                 ))}
             </div>
         </NotificationContext.Provider>

@@ -12,8 +12,6 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:10000';
 export const apiCall = async (endpoint, options = {}, isFileUpload = false) => {
     const token = localStorage.getItem('authToken');
     
-    console.log('apiCall debug:', { endpoint, isFileUpload, hasFormData: options.body instanceof FormData });
-    
     const defaultOptions = {
         headers: {
             // Don't set Content-Type for file uploads - browser will set it with boundary
@@ -31,15 +29,11 @@ export const apiCall = async (endpoint, options = {}, isFileUpload = false) => {
         },
     };
 
-    console.log('apiCall fetchOptions headers:', fetchOptions.headers);
-
     // Ensure the endpoint starts with a slash
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     
     try {
         const response = await fetch(`${API_BASE_URL}${normalizedEndpoint}`, fetchOptions);
-        
-        console.log('apiCall response:', { status: response.status, contentType: response.headers.get('content-type') });
         
         // Check if response is JSON
         const contentType = response.headers.get('content-type');
@@ -50,7 +44,6 @@ export const apiCall = async (endpoint, options = {}, isFileUpload = false) => {
         } else {
             // For non-JSON responses, try to get text and parse as JSON if possible
             const text = await response.text();
-            console.log('apiCall non-JSON response text:', text.substring(0, 200));
             try {
                 data = JSON.parse(text);
             } catch {
@@ -59,8 +52,6 @@ export const apiCall = async (endpoint, options = {}, isFileUpload = false) => {
             }
         }
         
-        console.log('apiCall parsed data:', data);
-        
         // Check if the response was successful
         if (!response.ok) {
             throw new Error(data.error || data.message || `HTTP ${response.status}: ${response.statusText}`);
@@ -68,9 +59,10 @@ export const apiCall = async (endpoint, options = {}, isFileUpload = false) => {
         
         return data;
     } catch (error) {
-        // Log the error for debugging
-        console.error('API call failed:', error);
-        
+        // Log the error for debugging only in development
+        if (process.env.NODE_ENV === 'development') {
+            console.error('API call failed:', error);
+        }
         // Re-throw the error to be handled by the component
         throw error;
     }

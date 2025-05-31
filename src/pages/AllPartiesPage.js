@@ -4,11 +4,12 @@ import { apiCall } from '../api';
 import { Users, ChevronsRight, BarChart2, TrendingUp } from 'lucide-react'; // Added icons
 import PlayerDisplayName from '../components/PlayerDisplayName'; // Import PlayerDisplayName
 import StanceDisplay from '../components/StanceDisplay'; // Import StanceDisplay
+import { useNotification } from '../contexts/NotificationContext'; // Add import
 
 const AllPartiesPage = () => {
     const [parties, setParties] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const { addNotification } = useNotification(); // Add this
 
     useEffect(() => {
         const fetchParties = async () => {
@@ -17,15 +18,15 @@ const AllPartiesPage = () => {
                 setParties(data);
                 setLoading(false);
             } catch (err) {
-                setError('Failed to load parties data. ' + (err.message || ''));
+                addNotification(`Failed to load parties data: ${err.message || 'Unknown error'}`, 'error');
+                console.error('Failed to load parties data:', err); // Optional: log the error
                 setLoading(false);
             }
         };
         fetchParties();
-    }, []);
+    }, [addNotification]); // Add addNotification to dependency array
 
     if (loading) return <div className="p-6 text-center text-gray-400">Loading all parties...</div>;
-    if (error) return <div className="p-6 bg-red-700/20 text-red-300 rounded-lg">{error}</div>;
 
     return (
         <div className="p-4 sm:p-6 bg-gray-800 rounded-lg shadow-xl">
@@ -76,7 +77,7 @@ const AllPartiesPage = () => {
                                 to={`/party/${party.id}`} 
                                 className="mt-5 block w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md text-center transition-colors duration-200 flex items-center justify-center"
                             >
-                                View Party Page <ChevronsRight size={18} className="ml-1.5" />
+                                View Party Page <ChevronsRight size={18} className="ml-1.5" aria-hidden="true" />
                             </Link>
                         </div>
                     ))}

@@ -69,6 +69,8 @@ export default function Navbar({ currentUser, logout, gameDate }) {
                         onClick={toggleUSADropdown}
                         style={navLinkStyles({ isActive: false })} 
                         className={`flex items-center text-sm sm:text-base focus:outline-none ${isUSADropdownOpen ? 'text-gray-200' : 'text-gray-400 hover:text-gray-200'}`}
+                        aria-haspopup="true"
+                        aria-expanded={isUSADropdownOpen}
                     >
                         <Flag size={14} className="mr-1 hidden sm:inline-block"/> USA <span className={`ml-1 text-xs transition-transform duration-200 ${isUSADropdownOpen ? 'rotate-180' : ''}`}>▼</span>
                     </button>
@@ -142,6 +144,8 @@ export default function Navbar({ currentUser, logout, gameDate }) {
                         onClick={toggleProfileDropdown}
                         className="flex items-center focus:outline-none hover:opacity-80 transition-opacity"
                         title="Profile Menu"
+                        aria-haspopup="true"
+                        aria-expanded={isProfileDropdownOpen}
                     >
                 {currentUser.profile_picture_url ? (
                             <img src={currentUser.profile_picture_url} alt="PFP" className="h-6 w-6 rounded-full object-cover border border-gray-400"/>

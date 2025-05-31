@@ -7,7 +7,7 @@ const EditableField = ({ label, name, value, onChange, type = "text", placeholde
             type={type} 
             name={name} 
             id={name} 
-            value={value || ''} 
+            value={value ?? ''} 
             onChange={onChange} 
             placeholder={placeholder || label} 
             disabled={disabled} 

@@ -21,28 +21,12 @@ export const formatCurrency = (amount) => {
  * @returns {string} The formatted percentage string
  */
 export const formatPercentage = (value, decimals = 1) => {
-    if (value === null || value === undefined || value === '' || isNaN(value)) return '0%';
+    // Handles null, undefined, empty string, or non-numeric string by converting to NaN
+    const numericValue = parseFloat(value);
     
-    const numericValue = typeof value === 'string' ? parseFloat(value) : value;
     if (isNaN(numericValue)) return '0%';
     
     return `${numericValue.toFixed(decimals)}%`;
-};
-
-/**
- * Format a date string or timestamp
- * @param {string|Date} date - The date to format
- * @returns {string} The formatted date string
- */
-export const formatDate = (date) => {
-    if (!date) return '';
-    
-    const d = new Date(date);
-    return d.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
 };
 
 /**

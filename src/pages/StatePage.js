@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiCall } from '../api';
-import CandidateFinanceWidget from '../components/CandidateFinanceWidget'; // Import the new component
+import CandidateFinanceWidget from '../components/CandidateFinanceWidget';
 import { Target, BarChart2, LogOut, CheckCircle, XCircle, Award, DollarSign } from 'lucide-react';
 import { stanceScale } from '../state-data'; 
+import { useAuth } from '../contexts/AuthContext'; // Import useAuth
 
 // Helper function to get the descriptive label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value,10))?.label || 'Moderate';
@@ -20,9 +21,10 @@ const getStanceBarColorClass = (value) => {
     return 'bg-gray-500';
 };
 
-export default function StatePage({ currentUser, setCurrentUser }) {
+export default function StatePage({ currentUser /* Removed setCurrentUser */ }) {
   const { stateName } = useParams();
   const decodedStateName = decodeURIComponent(stateName);
+  const { updateUser, refreshUser } = useAuth(); // Get updateUser and refreshUser
 
   const [stateDetails, setStateDetails] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -126,9 +128,13 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     clearMessages();
     try {
         setIsProcessingAction(true);
+        // This endpoint /actions/attack needs to be verified or updated
+        // Assuming it returns { message: string, newStats: object } or { message: string, updatedProfile: object }
         const res = await apiCall('/actions/attack', { method: 'POST', body: JSON.stringify({targetUserId}) });
-        setCurrentUser(prev => ({...prev, campaign_funds: res.newFunds, action_points: res.newAP }));
+        if (res.updatedProfile) updateUser(res.updatedProfile);
+        else if (res.newStats) updateUser(res.newStats);
         setSuccessMessage(res.message);
+        // Consider fetchStateData() or refreshing specific election if attack has broader impact
     } catch (err) { setError(err.message); }
     finally { setIsProcessingAction(false); }
   };
@@ -137,18 +143,16 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     clearMessages();
     try {
         setIsProcessingAction(true);
+        // This endpoint /actions/support-candidate needs to be verified or updated
+        // Assuming it returns { message: string, newStats: object } or { message: string, updatedProfile: object }
         const res = await apiCall('/actions/support-candidate', {
             method: 'POST',
             body: JSON.stringify({ targetElectionCandidateId })
         });
-        setCurrentUser(prev => ({
-            ...prev,
-            action_points: res.newStats.action_points,
-            political_capital: res.newStats.political_capital
-        }));
+        if (res.updatedProfile) updateUser(res.updatedProfile);
+        else if (res.newStats) updateUser(res.newStats);
         setSuccessMessage(res.message);
         
-        // Refresh election data to show updated approval ratings
         if (selectedElection) {
             const electionDetailsResult = await apiCall(`/elections/${selectedElection.id}`);
             setSelectedElection(electionDetailsResult);
@@ -156,8 +160,7 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     } catch (err) {
         setError(err.message);
     } finally {
-        setIsProcessingAction(false);
-    }
+        setIsProcessingAction(false); }
   };
 
   const handleFileForElection = async (electionId, filingFee) => {
@@ -167,14 +170,18 @@ export default function StatePage({ currentUser, setCurrentUser }) {
           if (currentUser.home_state !== decodedStateName) {
               throw new Error("You can only file for elections in your home state.");
           }
+          // Filing fee check is good client-side, but backend MUST re-validate
           if (currentUser.campaign_funds < filingFee) {
               throw new Error(`Insufficient funds. Filing fee: $${filingFee?.toLocaleString()}. Your funds: $${currentUser.campaign_funds.toLocaleString()}`);
           }
+          // Assuming backend returns { message: string, newStats: object } or { message: string, updatedProfile: object }
           const res = await apiCall(`/elections/${electionId}/file`, { method: 'POST' });
+          if (res.updatedProfile) updateUser(res.updatedProfile);
+          else if (res.newStats) updateUser(res.newStats);
+          // Fallback if only newCampaignFunds is returned (legacy or specific response)
+          else if (res.newCampaignFunds !== undefined) updateUser({ campaign_funds: res.newCampaignFunds });
+          
           setSuccessMessage(res.message);
-          setCurrentUser(prev => ({...prev, campaign_funds: res.newCampaignFunds !== undefined ? res.newCampaignFunds : prev.campaign_funds - filingFee}));
-
-          // Refresh data
           await fetchStateData();
           if(selectedElection && selectedElection.id === electionId){
              const electionDetailsResult = await apiCall(`/elections/${electionId}`);
@@ -194,11 +201,14 @@ export default function StatePage({ currentUser, setCurrentUser }) {
     }
     setIsProcessingAction(true);
     try {
+        // Assuming backend returns { message: string, newStats: object } or { message: string, updatedProfile: object }
         const res = await apiCall(`/elections/${electionId}/candidate`, { method: 'DELETE' });
+        if (res.updatedProfile) updateUser(res.updatedProfile);
+        else if (res.newStats) updateUser(res.newStats);
+        // Fallback if only newCampaignFunds is returned
+        else if (res.newCampaignFunds !== undefined) updateUser({ campaign_funds: res.newCampaignFunds });
+
         setSuccessMessage(res.message);
-        if (res.newCampaignFunds !== undefined) {
-            setCurrentUser(prev => ({ ...prev, campaign_funds: res.newCampaignFunds }));
-        }
         await fetchStateData();
         if(selectedElection && selectedElection.id === electionId){
            const electionDetailsResult = await apiCall(`/elections/${electionId}`);
@@ -426,7 +436,7 @@ export default function StatePage({ currentUser, setCurrentUser }) {
                                                                 <CandidateFinanceWidget
                                                                     candidate={c}
                                                                     currentUser={currentUser}
-                                                                    setCurrentUser={setCurrentUser}
+                                                                    setCurrentUser={updateUser}
                                                                     onClose={() => setSelectedCandidateForFinance(null)}
                                                                 />
                                                             </div>
