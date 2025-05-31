@@ -452,7 +452,7 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
         const fetchGameParameters = async () => {
             try {
                 setLoadingGameParams(true);
-                const params = await apiCall('/api/game/parameters'); // Using new API endpoint
+                const params = await apiCall('/game/parameters'); // Remove /api/ prefix since it's added by server mounting
                 setGameParameters(params);
             } catch (error) {
                 console.error("Failed to fetch game parameters:", error);
@@ -480,7 +480,7 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
     const fetchIncomeDetails = async () => {
         if (!currentUser || !currentUser.id) return;
         try {
-            const details = await apiCall(`/income/details/${currentUser.id}`);
+            const details = await apiCall('/income/details'); // Remove user ID from URL as backend expects it from auth token
             setIncomeDetails(details);
         } catch (error) {
             console.error("Failed to fetch income details:", error);
