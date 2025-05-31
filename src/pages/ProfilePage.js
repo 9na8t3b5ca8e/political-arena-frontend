@@ -434,9 +434,18 @@ export default function ProfilePage() {
         fetchGameParameters();
     }, []);
 
-    // Attack opponent handler
+    // Attack opponent handler - with additional safeguards
     const handleAttackOpponent = async () => {
-        if (!profileData || isOwnProfile) return;
+        // Multiple safeguards to prevent self-targeting
+        if (!profileData || !authCurrentUser) {
+            addNotification('User data not available', 'error');
+            return;
+        }
+        
+        if (isOwnProfile || profileData.user_id === authCurrentUser.id || profileData.id === authCurrentUser.id) {
+            addNotification('You cannot attack yourself!', 'error');
+            return;
+        }
         
         setLoadingAttack(true);
         try {
@@ -462,9 +471,18 @@ export default function ProfilePage() {
         }
     };
 
-    // Support candidate handler
+    // Support candidate handler - with additional safeguards
     const handleSupportCandidate = async () => {
-        if (!profileData || isOwnProfile) return;
+        // Multiple safeguards to prevent self-targeting
+        if (!profileData || !authCurrentUser) {
+            addNotification('User data not available', 'error');
+            return;
+        }
+        
+        if (isOwnProfile || profileData.user_id === authCurrentUser.id || profileData.id === authCurrentUser.id) {
+            addNotification('You cannot support yourself!', 'error');
+            return;
+        }
         
         setLoadingSupport(true);
         try {
@@ -578,8 +596,14 @@ export default function ProfilePage() {
                             )}
                         </div>
                     )}
-                    {/* Political Actions for other users' profiles */}
-                    {!isOwnProfile && authCurrentUser && gameParameters && (
+                    {/* Political Actions for other users' profiles - ENHANCED VALIDATION */}
+                    {!isOwnProfile && 
+                     authCurrentUser && 
+                     gameParameters && 
+                     profileData &&
+                     profileData.user_id !== authCurrentUser.id &&
+                     profileData.id !== authCurrentUser.id &&
+                     (!paramsUserId || parseInt(paramsUserId, 10) !== authCurrentUser.id) && (
                         <div className="flex items-center gap-2 mt-3 sm:mt-0 sm:ml-auto shrink-0">
                             <button 
                                 onClick={handleAttackOpponent}
