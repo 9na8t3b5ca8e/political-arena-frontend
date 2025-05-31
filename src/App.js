@@ -37,6 +37,49 @@ function AppContent() {
   const { user: currentUser, loading, logout } = useAuth();
   const { showError } = useNotification();
 
+  // Check if user profile is complete
+  const isProfileComplete = (user) => {
+    if (!user) return false;
+    
+    // Required fields for a complete profile
+    const requiredFields = [
+      'party',
+      'home_state', 
+      'gender',
+      'race',
+      'religion',
+      'age'
+    ];
+    
+    // Check that all required fields exist and are not empty
+    const fieldsExist = requiredFields.every(field => {
+      const value = user[field];
+      return value !== null && value !== undefined && value !== '';
+    });
+    
+    if (!fieldsExist) return false;
+    
+    // Validate against predefined dropdown values
+    const validParties = ['Democrat', 'Republican', 'Independent'];
+    const validStates = allStates; // Imported from state-data
+    const validGenders = genderOptions;
+    const validRaces = raceOptions;
+    const validReligions = religionOptions;
+    const validAges = ageOptions;
+    
+    // Validate each field against its allowed values
+    const validations = [
+      validParties.includes(user.party),
+      validStates.includes(user.home_state),
+      validGenders.includes(user.gender),
+      validRaces.includes(user.race),
+      validReligions.includes(user.religion),
+      validAges.includes(parseInt(user.age, 10))
+    ];
+    
+    return validations.every(valid => valid === true);
+  };
+
   if (loading) {
     return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">Loading Application...</div>;
   }
@@ -48,28 +91,34 @@ function AppContent() {
           <div className="max-w-7xl mx-auto">
             {currentUser ? (
               <>
-                <Navbar currentUser={currentUser} logout={logout} /> 
-                <main className="mt-6">
-                  <Routes>
-                    <Route path="/" element={<HomePage currentUser={currentUser} />} />
-                    <Route path="/map" element={<MapPage />} />
-                    <Route path="/state/:stateName" element={<StatePage currentUser={currentUser} />} />
-                    <Route path="/profile" element={<ProfilePage currentUser={currentUser} />} />
-                    <Route path="/profile/:userId" element={<ProfilePage currentUser={currentUser} />} />
-                    <Route path="/party" element={<PartyPage currentUser={currentUser} />} />
-                    <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
-                    <Route path="/parties" element={<AllPartiesPage />} />
-                    <Route path="/players" element={<AllPlayersPage currentUser={currentUser} />} />
-                    <Route path="/campaign-hq" element={<CampaignHQPage />} />
-                    <Route path="/notifications" element={<NotificationsPage />} />
-                    <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-                    <Route path="/terms-of-service" element={<TermsOfServicePage />} />
-                    <Route path="*" element={<Navigate to="/" />} />
-                  </Routes>
-                </main>
-                
-                {/* Notification Preview Manager for bottom-right popups */}
-                <NotificationPreviewManager currentUser={currentUser} />
+                {isProfileComplete(currentUser) ? (
+                  <>
+                    <Navbar currentUser={currentUser} logout={logout} /> 
+                    <main className="mt-6">
+                      <Routes>
+                        <Route path="/" element={<HomePage currentUser={currentUser} />} />
+                        <Route path="/map" element={<MapPage />} />
+                        <Route path="/state/:stateName" element={<StatePage currentUser={currentUser} />} />
+                        <Route path="/profile" element={<ProfilePage currentUser={currentUser} />} />
+                        <Route path="/profile/:userId" element={<ProfilePage currentUser={currentUser} />} />
+                        <Route path="/party" element={<PartyPage currentUser={currentUser} />} />
+                        <Route path="/party/:partyId" element={<PartyPage currentUser={currentUser} />} />
+                        <Route path="/parties" element={<AllPartiesPage />} />
+                        <Route path="/players" element={<AllPlayersPage currentUser={currentUser} />} />
+                        <Route path="/campaign-hq" element={<CampaignHQPage />} />
+                        <Route path="/notifications" element={<NotificationsPage />} />
+                        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                        <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+                        <Route path="*" element={<Navigate to="/" />} />
+                      </Routes>
+                    </main>
+                    
+                    {/* Notification Preview Manager for bottom-right popups */}
+                    <NotificationPreviewManager currentUser={currentUser} />
+                  </>
+                ) : (
+                  <IncompleteProfileScreen currentUser={currentUser} logout={logout} />
+                )}
               </>
             ) : (
               <AuthRouter />
@@ -142,10 +191,16 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess }) => {
             
             const response = await apiCall(`/auth/${action}`, { method: 'POST', body: JSON.stringify(form) });
             
-            const loggedInUserData = await loginUser(response.token);
-            
             if (action === 'register') {
-                onRegistrationSuccess(loggedInUserData);
+                // For registration, store token but don't set user yet - wait for profile setup
+                localStorage.setItem('authToken', response.token);
+                
+                // Fetch the initial profile data for setup
+                const initialProfile = await apiCall('/auth/profile');
+                onRegistrationSuccess(initialProfile);
+            } else {
+                // For login, use the normal loginUser flow
+                await loginUser(response.token);
             }
         } catch (err) { 
             setError(err.message); 
@@ -315,7 +370,7 @@ const AuthScreen = ({ action, setAction, onRegistrationSuccess }) => {
     );
 };
 
-const ProfileSetup = ({ currentUserData, onSetupComplete }) => {
+const ProfileSetup = ({ currentUserData, onSetupComplete, isForced }) => {
     const [profileData, setProfileData] = useState({
         party: currentUserData.party || '',
         home_state: currentUserData.home_state || '',
@@ -329,7 +384,7 @@ const ProfileSetup = ({ currentUserData, onSetupComplete }) => {
     });
     const [error, setError] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-
+    const { setUser } = useAuth();
 
     const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value, 10))?.label || 'Moderate';
 
@@ -360,10 +415,36 @@ const ProfileSetup = ({ currentUserData, onSetupComplete }) => {
 
     const finishSetup = async () => {
         setError('');
+        
+        // Check for required fields
         if (!profileData.party || !profileData.home_state || !profileData.gender || !profileData.race || !profileData.religion || !profileData.age) {
             setError("Please complete all required fields: Party, Home State, Gender, Age, Race, and Religion.");
             return;
         }
+        
+        // Validate against predefined dropdown values
+        const validParties = ['Democrat', 'Republican', 'Independent'];
+        const validStates = allStates;
+        const validGenders = genderOptions;
+        const validRaces = raceOptions;
+        const validReligions = religionOptions;
+        const validAges = ageOptions;
+        
+        const validations = [
+            { field: 'Party', valid: validParties.includes(profileData.party) },
+            { field: 'Home State', valid: validStates.includes(profileData.home_state) },
+            { field: 'Gender', valid: validGenders.includes(profileData.gender) },
+            { field: 'Race', valid: validRaces.includes(profileData.race) },
+            { field: 'Religion', valid: validReligions.includes(profileData.religion) },
+            { field: 'Age', valid: validAges.includes(parseInt(profileData.age, 10)) }
+        ];
+        
+        const invalidFields = validations.filter(v => !v.valid);
+        if (invalidFields.length > 0) {
+            setError(`Invalid selections detected for: ${invalidFields.map(f => f.field).join(', ')}. Please select from the dropdown options only.`);
+            return;
+        }
+        
         setIsSaving(true);
         try {
             const payload = {
@@ -406,11 +487,22 @@ const ProfileSetup = ({ currentUserData, onSetupComplete }) => {
     return (
         <div className="max-w-2xl mx-auto mt-10 md:mt-20 p-6 bg-gray-800 rounded-lg space-y-6 shadow-xl">
             <div className="text-center">
-                <h2 className="text-2xl font-bold text-blue-300">Create Your Political Persona</h2>
+                <h2 className="text-2xl font-bold text-blue-300">
+                    {isForced ? "Complete Your Political Profile" : "Create Your Political Persona"}
+                </h2>
                 <div className="mt-4 p-3 bg-blue-900/30 border border-blue-600/50 rounded-lg">
                     <p className="text-blue-200 text-sm">
-                        <span className="font-semibold">Remember:</span> You are customizing your <strong>fictional politician character</strong> - 
-                        this information represents your in-game persona, not your real identity.
+                        {isForced ? (
+                            <>
+                                <span className="font-semibold">Required:</span> Complete all fields below to access the Political Arena. 
+                                This information represents your <strong>fictional politician character</strong>, not your real identity.
+                            </>
+                        ) : (
+                            <>
+                                <span className="font-semibold">Remember:</span> You are customizing your <strong>fictional politician character</strong> - 
+                                this information represents your in-game persona, not your real identity.
+                            </>
+                        )}
                     </p>
                 </div>
             </div>
@@ -492,6 +584,51 @@ const ProfileSetup = ({ currentUserData, onSetupComplete }) => {
             >
                 {isSaving ? "Saving..." : "Enter the Arena"}
             </button>
+        </div>
+    );
+};
+
+const IncompleteProfileScreen = ({ currentUser, logout }) => {
+    const { setUser } = useAuth();
+    
+    const handleSetupComplete = (updatedProfile) => {
+        setUser(updatedProfile);
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-900 text-white font-sans">
+            {/* Header with logout */}
+            <div className="flex justify-between items-center p-4 bg-gray-800 border-b border-gray-700">
+                <div>
+                    <h1 className="text-xl font-bold text-red-400">⚠️ Profile Incomplete</h1>
+                    <p className="text-sm text-gray-400">Complete your politician profile to access Political Arena</p>
+                </div>
+                <button
+                    onClick={logout}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold transition-colors"
+                >
+                    Logout
+                </button>
+            </div>
+            
+            {/* Profile Setup */}
+            <div className="flex-1 p-4">
+                <div className="max-w-2xl mx-auto">
+                    <div className="mb-6 p-4 bg-red-900/30 border border-red-600/50 rounded-lg">
+                        <h2 className="text-red-300 font-semibold mb-2">Profile Completion Required</h2>
+                        <p className="text-red-200 text-sm">
+                            Your account was created but your politician profile is incomplete. 
+                            You must complete all required fields before you can access the Political Arena.
+                        </p>
+                    </div>
+                    
+                    <ProfileSetup 
+                        currentUserData={currentUser} 
+                        onSetupComplete={handleSetupComplete}
+                        isForced={true}
+                    />
+                </div>
+            </div>
         </div>
     );
 };

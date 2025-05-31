@@ -39,7 +39,7 @@ const calculateStateAlignment = (playerEconomic, playerSocial, stateName) => {
 };
 
 // Dropdown options
-const ageOptions = Array.from({ length: (90 - 18) + 1 }, (_, i) => 18 + i);
+const ageOptions = Array.from({ length: (120 - 18) + 1 }, (_, i) => 18 + i);
 const genderOptions = ["Male", "Female", "Non-binary", "Other", "Prefer not to say"];
 const raceOptions = [
     "White", "Black or African American", "Asian", "American Indian or Alaska Native",
@@ -342,6 +342,34 @@ export default function ProfilePage() {
         }
 
         try {
+            // Validate dropdown values before submission (like ProfileSetup)
+            const validGenders = genderOptions;
+            const validRaces = raceOptions;
+            const validReligions = religionOptions;
+            const validAges = ageOptions;
+            
+            const validations = [];
+            
+            if (editableFields.gender !== profileData.gender && editableFields.gender) {
+                validations.push({ field: 'Gender', valid: validGenders.includes(editableFields.gender) });
+            }
+            if (editableFields.race !== profileData.race && editableFields.race) {
+                validations.push({ field: 'Race', valid: validRaces.includes(editableFields.race) });
+            }
+            if (editableFields.religion !== profileData.religion && editableFields.religion) {
+                validations.push({ field: 'Religion', valid: validReligions.includes(editableFields.religion) });
+            }
+            if (editableFields.age !== profileData.age && editableFields.age) {
+                validations.push({ field: 'Age', valid: validAges.includes(parseInt(editableFields.age, 10)) });
+            }
+            
+            const invalidFields = validations.filter(v => !v.valid);
+            if (invalidFields.length > 0) {
+                setError(`Invalid selections detected for: ${invalidFields.map(f => f.field).join(', ')}. Please select from the dropdown options only.`);
+                setIsSaving(false);
+                return;
+            }
+
             const payload = {};
             if (nameChanged && !isNameChangeCooldownActive) {
                 payload.firstName = editableFields.firstName;
