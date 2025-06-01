@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiCall } from '../api';
 import { AlertTriangle, Mail, Clock, Check } from 'lucide-react';
-import { notifyTimezoneChange } from '../utils/dateUtils';
+import { notifyTimezoneChange, formatUserDate } from '../utils/dateUtils';
 
 const TIMEZONE_OPTIONS = [
     'Auto-detect',
@@ -361,8 +361,7 @@ export default function SettingsModal({ isOpen, onClose, onSuccess, onError, use
                         <div className="mt-6 p-3 bg-gray-700/50 rounded border border-gray-600">
                             <h4 className="text-sm font-medium text-gray-300 mb-2">Preview</h4>
                             <p className="text-sm text-gray-200">
-                                Current time: {new Date().toLocaleString(undefined, {
-                                    timeZone: timezone === 'Auto-detect' ? undefined : timezone,
+                                Current time: {formatUserDate(new Date(), {
                                     year: 'numeric',
                                     month: 'long',
                                     day: 'numeric',
@@ -370,7 +369,7 @@ export default function SettingsModal({ isOpen, onClose, onSuccess, onError, use
                                     minute: '2-digit',
                                     second: '2-digit',
                                     timeZoneName: 'short'
-                                })}
+                                }, { timezone: timezone === 'Auto-detect' ? 'Auto-detect' : timezone })}
                             </p>
                         </div>
                     </>

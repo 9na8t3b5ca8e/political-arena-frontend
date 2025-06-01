@@ -2,13 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { apiCall } from '../api';
 import PlayerDisplayName from './PlayerDisplayName'; // Import PlayerDisplayName
 import StanceDisplay from './StanceDisplay'; // Import StanceDisplay
-import { formatDateOnly, formatLongDate } from '../utils/dateUtils'; // Import date utilities
+import { formatDateOnly, formatLongDate, useTimezoneUpdates } from '../utils/dateUtils'; // Import date utilities
 import { useAuth } from '../contexts/AuthContext'; // Assuming AuthContext provides currentUser
 import { useNotification } from '../contexts/NotificationContext'; // Import NotificationContext
 
 const PartyManagement = ({ partyId }) => { // Added currentUser prop
     const { user: currentUser } = useAuth(); // If using AuthContext
     const { showError, showSuccess, showInfo } = useNotification(); // Destructure correct functions
+    
+    // Hook to re-render when timezone changes
+    useTimezoneUpdates();
+    
     const [partyDetails, setPartyDetails] = useState(null);
     const [candidates, setCandidates] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -38,6 +42,32 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
     // New state for party dues management
     const [newDuesPercentage, setNewDuesPercentage] = useState(0);
     const [isSettingDues, setIsSettingDues] = useState(false);
+
+    // Calculate election cycle dates (based on backend logic)
+    const calculateElectionCycleDates = async () => {
+        try {
+            const electionInfo = await apiCall(`/party/${partyId}/election-info`);
+            setElectionCycleDateDisplay(formatDateOnly(new Date(electionInfo.election_cycle_start), currentUser));
+            setElectionCycleEndDisplay(formatDateOnly(new Date(electionInfo.election_cycle_end), currentUser));
+        } catch (err) {
+            console.log('Failed to load election cycle info, falling back to local calculation:', err.message);
+            // Fallback to local calculation
+            const currentDate = new Date();
+            const dayOfWeek = currentDate.getDay();
+            const difference = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const electionCycleDate = new Date(currentDate);
+            electionCycleDate.setDate(currentDate.getDate() + difference);
+            electionCycleDate.setHours(0, 0, 0, 0);
+            
+            // Voting closes at the end of the week (next Monday)
+            const electionCycleEndDate = new Date(electionCycleDate);
+            electionCycleEndDate.setDate(electionCycleDate.getDate() + 7);
+            electionCycleEndDate.setHours(0, 0, 0, 0);
+            
+            setElectionCycleDateDisplay(formatDateOnly(electionCycleDate, currentUser));
+            setElectionCycleEndDisplay(formatDateOnly(electionCycleEndDate, currentUser));
+        }
+    };
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-US', {
@@ -77,8 +107,17 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
         
         if (partyId) {
             loadPartyData();
+            // Calculate election cycle dates when component loads
+            calculateElectionCycleDates();
         }
     }, [partyId, showError]);
+
+    // Recalculate election cycle dates when currentUser changes (e.g., timezone preference)
+    useEffect(() => {
+        if (partyId) {
+            calculateElectionCycleDates();
+        }
+    }, [currentUser]);
 
     const refreshData = async () => {
         try {
