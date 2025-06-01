@@ -6,6 +6,7 @@ import CandidateFinanceWidget from '../components/CandidateFinanceWidget';
 import { Target, BarChart2, LogOut, CheckCircle, XCircle, Award, DollarSign } from 'lucide-react';
 import { stanceScale } from '../state-data'; 
 import { useAuth } from '../contexts/AuthContext'; // Import useAuth
+import { formatRelativeTime } from '../utils/dateUtils';
 
 // Helper function to get the descriptive label
 const getStanceLabel = (value) => stanceScale.find(s => s.value === parseInt(value,10))?.label || 'Moderate';
@@ -64,29 +65,7 @@ export default function StatePage({ currentUser /* Removed setCurrentUser */ }) 
 
   const formatTime = (deadlineISOString) => {
     if (!deadlineISOString) return { relative: "N/A", absolute: "N/A", hasPassed: true};
-    const deadline = new Date(deadlineISOString);
-    const now = new Date();
-    const diff = deadline - now;
-
-    let relativeString = "Closed";
-    let hasPassed = true;
-
-    if (diff > 0) {
-        hasPassed = false;
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-        const minutes = Math.floor((diff / 1000 / 60) % 60);
-
-        if (days > 0) relativeString = `${days}d ${hours}h ${minutes}m left`;
-        else if (hours > 0) relativeString = `${hours}h ${minutes}m left`;
-        else if (minutes > 0) relativeString = `${minutes}m left`;
-        else relativeString = "<1m left";
-    }
-
-    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', timeZoneName: 'short' };
-    const absoluteString = deadline.toLocaleString(undefined, options);
-
-    return { relative: relativeString, absolute: absoluteString, hasPassed };
+    return formatRelativeTime(deadlineISOString, currentUser);
   };
 
   const handleViewElection = async (electionId) => {

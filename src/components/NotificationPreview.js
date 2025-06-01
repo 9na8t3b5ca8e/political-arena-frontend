@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { X, DollarSign, Sword, Shield, Bell, ExternalLink } from 'lucide-react';
+import { X, DollarSign, Sword, Shield, Bell, ExternalLink, Clock } from 'lucide-react';
 import { apiCall } from '../api';
+import { formatLongDate } from '../utils/dateUtils';
 
 const NotificationPreview = ({ notification, onClose, onMarkAsRead }) => {
     const [isVisible, setIsVisible] = useState(false);
@@ -114,9 +115,10 @@ const NotificationPreview = ({ notification, onClose, onMarkAsRead }) => {
                 <p className="text-sm text-gray-200 leading-relaxed">
                     {formatMessage(notification)}
                 </p>
-                <p className="text-xs text-gray-500 mt-2">
-                    {new Date(notification.created_at).toLocaleString()}
-                </p>
+                <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                    <Clock className="w-3 h-3" />
+                    {formatLongDate(notification.created_at, currentUser)}
+                </div>
             </div>
 
             {/* Hover instruction */}

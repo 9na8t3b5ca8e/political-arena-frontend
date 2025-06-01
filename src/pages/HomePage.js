@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { apiCall } from '../api';
-import { formatPercentage } from '../utils/formatters';
+import { formatPercentage, formatCurrency, formatNumber } from '../utils/formatters';
 import { useNotification } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
+import { formatLongDate } from '../utils/dateUtils';
 
 // Create a context for game parameters
 const GameParametersContext = React.createContext(null);
@@ -544,12 +545,12 @@ const HomePage = ({ currentUser: propCurrentUser }) => {
                         <h2 className="text-2xl font-bold text-white mb-4">Election Dashboard</h2>
                         {gameParameters?.election_cycle ? (
                             <div className="text-sm space-y-2">
-                                <p><span className="font-semibold text-blue-400">Current Cycle Started:</span> {new Date(gameParameters.election_cycle.current_cycle_start_date).toLocaleString()}</p>
-                                <p><span className="font-semibold text-yellow-400">Filing Period Ends:</span> {new Date(gameParameters.election_cycle.filing_period_ends).toLocaleString()}</p>
-                                <p><span className="font-semibold text-red-400">Primary Campaign Ends (Primaries):</span> {new Date(gameParameters.election_cycle.primary_election_date).toLocaleString()}</p>
-                                <p><span className="font-semibold text-green-400">General Campaign Starts:</span> {new Date(gameParameters.election_cycle.general_campaign_starts).toLocaleString()}</p>
-                                <p><span className="font-semibold text-purple-400">General Campaign Ends (General Election):</span> {new Date(gameParameters.election_cycle.general_election_date).toLocaleString()}</p>
-                                <p><span className="font-semibold text-gray-400">Current Cycle Ends:</span> {new Date(gameParameters.election_cycle.current_cycle_end_date).toLocaleString()}</p>
+                                <p className="text-sm text-gray-300">Current Cycle Start: {formatLongDate(gameParameters.election_cycle.current_cycle_start_date, currentUser)}</p>
+                                <p className="text-sm text-gray-300">Filing Period Ends: {formatLongDate(gameParameters.election_cycle.filing_period_ends, currentUser)}</p>
+                                <p className="text-sm text-gray-300">Primary Election: {formatLongDate(gameParameters.election_cycle.primary_election_date, currentUser)}</p>
+                                <p className="text-sm text-gray-300">General Campaign Starts: {formatLongDate(gameParameters.election_cycle.general_campaign_starts, currentUser)}</p>
+                                <p className="text-sm text-gray-300">General Election: {formatLongDate(gameParameters.election_cycle.general_election_date, currentUser)}</p>
+                                <p className="text-sm text-gray-300">Current Cycle End: {formatLongDate(gameParameters.election_cycle.current_cycle_end_date, currentUser)}</p>
                             </div>
                         ) : <p>Loading election cycle information...</p>}
                     </div>

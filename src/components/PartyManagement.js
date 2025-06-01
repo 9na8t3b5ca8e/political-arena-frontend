@@ -574,7 +574,7 @@ const PartyManagement = ({ partyId }) => { // Added currentUser prop
                         </div>
                         {lastVoteSubmissionTime && (
                             <p className="text-xs text-green-600 mt-1">
-                                Last updated: {lastVoteSubmissionTime.toLocaleString()}
+                                Last updated: {formatLongDate(lastVoteSubmissionTime, currentUser)}
                             </p>
                         )}
                         <p className="text-xs text-green-600 mt-1">

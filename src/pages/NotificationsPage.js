@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { 
     Bell, Trash2, Check, CheckCircle, Circle, Filter, Search, 
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { apiCall } from '../api';
 import { useNotification } from '../contexts/NotificationContext';
+import { formatLongDate } from '../utils/dateUtils';
 
 const NotificationsPage = () => {
     const [notifications, setNotifications] = useState([]);
@@ -354,7 +355,7 @@ const NotificationsPage = () => {
                                     <div className="flex items-center gap-4 mt-2">
                                         <div className="flex items-center gap-1 text-xs text-gray-500">
                                             <Clock className="w-3 h-3" />
-                                            {new Date(notification.created_at).toLocaleString()}
+                                            {formatLongDate(notification.created_at, currentUser)}
                                         </div>
                                         {!notification.is_read && (
                                             <span className="flex items-center gap-1 text-xs text-blue-400">

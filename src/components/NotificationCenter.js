@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Bell, Check, Trash2, ExternalLink, Clock, DollarSign, Sword, Shield } from 'lucide-react';
 import { apiCall } from '../api';
 import { useNotification as useToastNotification } from '../contexts/NotificationContext';
+import { formatLongDate } from '../utils/dateUtils';
 
 const NotificationCenter = ({ currentUser }) => {
     const [notifications, setNotifications] = useState([]);
@@ -210,9 +211,9 @@ const NotificationCenter = ({ currentUser }) => {
                                             </p>
                                             <div className="flex items-center gap-2 mt-1">
                                                 <Clock className="w-3 h-3 text-gray-500" />
-                                                <span className="text-xs text-gray-500">
-                                                    {new Date(notification.created_at).toLocaleString()}
-                                                </span>
+                                                <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                                    {formatLongDate(notification.created_at, currentUser)}
+                                                </div>
                                                 {!notification.is_read && (
                                                     <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
                                                 )}

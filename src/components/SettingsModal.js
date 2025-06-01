@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiCall } from '../api';
 import { AlertTriangle, Mail, Clock, Check } from 'lucide-react';
+import { notifyTimezoneChange } from '../utils/dateUtils';
 
 const TIMEZONE_OPTIONS = [
     'Auto-detect',
@@ -128,7 +129,7 @@ export default function SettingsModal({ isOpen, onClose, onSuccess, onError, use
     useEffect(() => {
         if (isOpen) {
             // Load timezone: prioritize from user object, then localStorage, then default
-            const userTimezone = currentUser?.preferences?.timezone;
+            const userTimezone = currentUser?.timezone;
             const savedTimezone = localStorage.getItem('userTimezone');
             setTimezone(userTimezone || savedTimezone || 'Auto-detect');
             
@@ -201,15 +202,15 @@ export default function SettingsModal({ isOpen, onClose, onSuccess, onError, use
             if (currentUser && setCurrentUser) {
                 setCurrentUser({
                     ...currentUser,
-                    preferences: {
-                        ...currentUser.preferences,
-                        timezone: timezone,
-                    },
+                    timezone: timezone,
                 });
             }
             const successMsg = "Timezone preference saved successfully!";
             setModalSuccess(successMsg);
             if (onSuccess) onSuccess(successMsg);
+            
+            // Notify all components that timezone has changed
+            notifyTimezoneChange();
 
         } catch (err) {
             const errorMessage = err.message || "Failed to save timezone preference.";

@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { DollarSign, TrendingUp, Briefcase, Timer, MapPin, Clock, User as UserIcon, Users, Settings, ChevronDown, Flag, Shield } from 'lucide-react';
 import NotificationCenter from './NotificationCenter';
+import { formatUserDate, useTimezoneUpdates } from '../utils/dateUtils';
 
 export default function Navbar({ currentUser, logout }) {
   const [isUSADropdownOpen, setIsUSADropdownOpen] = useState(false);
@@ -10,6 +11,9 @@ export default function Navbar({ currentUser, logout }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const usaDropdownRef = useRef(null);
   const profileDropdownRef = useRef(null);
+
+  // Hook to re-render when timezone changes
+  useTimezoneUpdates();
 
   const navLinkStyles = ({ isActive }) => ({
     color: isActive ? '#60a5fa' : '#9ca3af',
@@ -32,17 +36,20 @@ export default function Navbar({ currentUser, logout }) {
 
   // Format the current time as requested: [1/1/2025] [12:38 PM XX]
   const formatServerTime = (date) => {
-    const dateStr = date.toLocaleDateString('en-US', {
+    // Use timezone-aware formatting
+    const dateStr = formatUserDate(date, {
       month: 'numeric',
-      day: 'numeric',
+      day: 'numeric', 
       year: 'numeric'
-    });
-    const timeStr = date.toLocaleTimeString('en-US', {
+    }, currentUser);
+    
+    const timeStr = formatUserDate(date, {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
       timeZoneName: 'short'
-    });
+    }, currentUser);
+    
     return `[${dateStr}] [${timeStr}]`;
   };
 
